@@ -14,6 +14,8 @@ struct PluginState {
     panes: HashMap<String, JumpPane>,
     label_input: String,
     label_alphabet: Vec<char>,
+    pane_id: u32,
+    refresh_panes: bool,
 }
 
 register_plugin!(PluginState);
@@ -27,11 +29,12 @@ impl PluginState {
 
 impl ZellijPlugin for PluginState {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        self.refresh_panes = true;
+        self.pane_id = get_plugin_ids().plugin_id;
         self.label_alphabet = configuration
             .get("label_alphabet")
             .map(|alphabet| alphabet.trim().to_lowercase())
-            // todo: probly qwerty default
-            .unwrap_or("tnseriaoplfuwyzkbvm".to_string())
+            .unwrap_or("fjdkslarueiwoqpcmx".to_string())
             .chars()
             .collect();
 
@@ -41,7 +44,7 @@ impl ZellijPlugin for PluginState {
             PermissionType::RunCommands,
             PermissionType::ChangeApplicationState,
         ]);
-        subscribe(&[EventType::Key, EventType::PaneUpdate]);
+        subscribe(&[EventType::Visible, EventType::Key, EventType::PaneUpdate]);
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -68,12 +71,20 @@ impl ZellijPlugin for PluginState {
                 return true;
             }
             Event::Key(_) => {}
+            Event::Visible(visible) => {
+                self.refresh_panes = visible;
+                return true;
+            }
             Event::PaneUpdate(PaneManifest { panes }) => {
+                if !self.refresh_panes {
+                    return false;
+                }
+
                 self.panes.clear();
                 let visible_panes: Vec<_> = panes
                     .values()
                     .flatten()
-                    .filter(|p| p.is_selectable)
+                    .filter(|p| p.is_selectable && p.id != self.pane_id)
                     .collect();
                 let label_len = if visible_panes.len() <= self.label_alphabet.len() {
                     1
@@ -81,7 +92,6 @@ impl ZellijPlugin for PluginState {
                     2
                 };
 
-                // todo: exclude self && skip when the plugin pane is hidden
                 let mut unprocessed_panes = Vec::new();
                 for pane in visible_panes {
                     let preffered_label = pane
