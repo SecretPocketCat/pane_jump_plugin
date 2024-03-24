@@ -1779,6 +1779,7 @@ dependencies = [
  "chrono",
  "itertools 0.12.1",
  "zellij-tile",
+ "zellij-tile-utils",
 ]
 
 [[package]]
@@ -2773,6 +2774,15 @@ dependencies = [
  "strum",
  "strum_macros",
  "zellij-utils",
+]
+
+[[package]]
+name = "zellij-tile-utils"
+version = "0.39.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd9a3ce2467ebf8784358b25d9063f72f97927b70edd5dbec596b5cef995f642"
+dependencies = [
+ "ansi_term",
 ]
 
 [[package]]

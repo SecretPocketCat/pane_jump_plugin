@@ -1,7 +1,8 @@
-use ansi_term::{Colour::Fixed, Style};
+use ansi_term::{Colour::Fixed, Colour::RGB, Style};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
 use zellij_tile::prelude::*;
+use zellij_tile_utils::palette_match;
 
 #[derive(Default)]
 struct JumpPane {
@@ -16,6 +17,7 @@ struct PluginState {
     label_alphabet: Vec<char>,
     pane_id: u32,
     refresh_panes: bool,
+    palette: Palette,
 }
 
 register_plugin!(PluginState);
@@ -38,13 +40,16 @@ impl ZellijPlugin for PluginState {
             .chars()
             .collect();
 
-        // todo: tidy-up permissions
         request_permission(&[
             PermissionType::ReadApplicationState,
-            PermissionType::RunCommands,
             PermissionType::ChangeApplicationState,
         ]);
-        subscribe(&[EventType::Visible, EventType::Key, EventType::PaneUpdate]);
+        subscribe(&[
+            EventType::Visible,
+            EventType::Key,
+            EventType::PaneUpdate,
+            EventType::ModeUpdate,
+        ]);
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -71,6 +76,10 @@ impl ZellijPlugin for PluginState {
                 return true;
             }
             Event::Key(_) => {}
+            Event::ModeUpdate(ModeInfo { style, .. }) => {
+                self.palette = style.colors;
+                return true;
+            }
             Event::Visible(visible) => {
                 self.refresh_panes = visible;
                 return true;
@@ -144,36 +153,36 @@ impl ZellijPlugin for PluginState {
         false
     }
 
-    // todo: use theme colours
     fn render(&mut self, _rows: usize, _cols: usize) {
         // title
-        println!(
-            "{}",
-            Style::new().fg(Fixed(GREEN)).bold().paint("Jump List\n")
-        );
+        println!("{}", color_bold(self.palette.green, "Jump panes"));
 
         // list
         for (label, pane) in self.panes.iter() {
             let label =
                 if !self.label_input.trim().is_empty() && label.starts_with(&self.label_input) {
-                    format!("{}", color_bold(GREEN, &self.label_input))
+                    format!(
+                        "{}{}",
+                        color_bold(self.palette.red, &self.label_input),
+                        color_bold(
+                            self.palette.green,
+                            &label
+                                .chars()
+                                .skip(self.label_input.len())
+                                .collect::<String>()
+                        )
+                    )
                 } else {
-                    color_bold(RED, label)
+                    color_bold(self.palette.green, label)
                 };
             println!("[{label}] {}", pane.title);
         }
     }
 }
 
-pub const CYAN: u8 = 51;
-pub const GRAY_LIGHT: u8 = 238;
-pub const GRAY_DARK: u8 = 245;
-pub const WHITE: u8 = 15;
-pub const BLACK: u8 = 16;
-pub const RED: u8 = 124;
-pub const GREEN: u8 = 154;
-pub const ORANGE: u8 = 166;
-
-fn color_bold(color: u8, text: &str) -> String {
-    format!("{}", Style::new().fg(Fixed(color)).bold().paint(text))
+fn color_bold(color: PaletteColor, text: &str) -> String {
+    format!(
+        "{}",
+        Style::new().fg(palette_match!(color)).bold().paint(text)
+    )
 }

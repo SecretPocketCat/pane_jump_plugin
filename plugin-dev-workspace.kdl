@@ -23,7 +23,7 @@ keybinds {
             LaunchOrFocusPlugin "file:target/wasm32-wasi/debug/rust-plugin-example.wasm" {
                 floating true
                 label_alphabet "tnseriaoplfuwyzkbvm"
-            }
+           }
         }
     }
 }
