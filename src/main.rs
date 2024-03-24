@@ -65,6 +65,7 @@ impl ZellijPlugin for PluginState {
             }
             Event::Key(Key::Char(c)) => {
                 self.label_input.push(c);
+                self.label_input = self.label_input.trim().to_string();
 
                 if let Some(pane) = self.panes.get(&self.label_input) {
                     // pane selected
