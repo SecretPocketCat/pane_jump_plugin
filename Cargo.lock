@@ -1390,6 +1390,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "pane_jump_plugin"
+version = "0.1.0"
+dependencies = [
+ "ansi_term",
+ "chrono",
+ "itertools 0.12.1",
+ "zellij-tile",
+ "zellij-tile-utils",
+]
+
+[[package]]
 name = "parking"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1769,17 +1780,6 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
-]
-
-[[package]]
-name = "rust-plugin-example"
-version = "0.1.0"
-dependencies = [
- "ansi_term",
- "chrono",
- "itertools 0.12.1",
- "zellij-tile",
- "zellij-tile-utils",
 ]
 
 [[package]]

@@ -13,6 +13,7 @@ struct JumpPane {
 #[derive(Default)]
 struct PluginState {
     panes: HashMap<String, JumpPane>,
+    label_len: u8,
     label_input: String,
     label_alphabet: Vec<char>,
     pane_id: u32,
@@ -36,7 +37,9 @@ impl ZellijPlugin for PluginState {
         self.label_alphabet = configuration
             .get("label_alphabet")
             .map(|alphabet| alphabet.trim().to_lowercase())
-            .unwrap_or("fjdkslarueiwoqpcmx".to_string())
+            .unwrap_or("tnseriaoplfuwyzkbvm".to_string())
+            // qwerty
+            // .unwrap_or("fjdkslarueiwoqpcmx".to_string())
             .chars()
             .collect();
 
@@ -64,8 +67,12 @@ impl ZellijPlugin for PluginState {
                 return true;
             }
             Event::Key(Key::Char(c)) => {
-                self.label_input.push(c);
-                self.label_input = self.label_input.trim().to_string();
+                if self.label_len == 1 {
+                    self.label_input = c.to_string();
+                } else {
+                    self.label_input.push(c);
+                    self.label_input = self.label_input.trim().to_string();
+                }
 
                 if let Some(pane) = self.panes.get(&self.label_input) {
                     // pane selected
@@ -146,6 +153,8 @@ impl ZellijPlugin for PluginState {
                     }
                 }
 
+                self.label_len = label_len as u8;
+
                 return true;
             }
             _ => unimplemented!("{event:?}"),
@@ -156,7 +165,11 @@ impl ZellijPlugin for PluginState {
 
     fn render(&mut self, _rows: usize, _cols: usize) {
         // title
-        println!("{}", color_bold(self.palette.green, "Jump panes"));
+        println!(
+            "{}: {}",
+            color_bold(self.palette.green, "Jump panes"),
+            color_bold(self.palette.red, &self.label_input)
+        );
 
         // list
         for (label, pane) in self.panes.iter() {

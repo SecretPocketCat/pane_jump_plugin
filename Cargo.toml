@@ -1,5 +1,5 @@
 [package]
-name = "rust-plugin-example"
+name = "pane_jump_plugin"
 version = "0.1.0"
 authors = ["Aram Drevekenin <aram@poor.dev>"]
 edition = "2018"
