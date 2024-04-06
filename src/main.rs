@@ -160,10 +160,12 @@ impl PluginState {
             },
         ));
 
-        // self.last_focused_editor.is_some_and(|f| self.current_focus.editor )
         if let Some(focus) = &self.last_focused_editor {
             if self.current_focus.editor && focus.id != self.current_focus.id {
-                eprintln!("Hide prev editor pane: {}", focus.id);
+                eprintln!(
+                    "Hide prev editor pane: {:?}, current_focus: {:?}, focused: {:?}",
+                    focus, self.current_focus, focused_pane
+                );
                 focus.hide();
             } else {
                 eprintln!(
@@ -310,7 +312,9 @@ impl ZellijPlugin for PluginState {
                                 .chars()
                                 .all(|c| self.label_alphabet.contains(&c))
                         {
-                            self.dash_panes.insert(preferred_label, self.map_pane(pane));
+                            let dash_pane = self.map_pane(pane);
+                            eprintln!("new dash pane: {dash_pane:?}");
+                            self.dash_panes.insert(preferred_label, dash_pane);
                         } else {
                             unlabeled_panes.push(pane);
                         }
