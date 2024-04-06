@@ -13,52 +13,82 @@ enum PluginStatus {
     Dashing,
 }
 
-#[derive(Debug, Default, Clone)]
-struct PaneFocus {
-    id: u32,
-    floating: bool,
-    plugin: bool,
-    editor: bool,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum PaneId {
+    Terminal(u32),
+    Plugin(u32),
 }
 
-impl PaneFocus {
-    fn focus(&self) {
-        if self.plugin {
-            focus_plugin_pane(self.id, false);
+impl PaneId {
+    fn new(id: u32, plugin: bool) -> Self {
+        if plugin {
+            Self::Plugin(id)
         } else {
-            focus_terminal_pane(self.id, false);
+            Self::Terminal(id)
+        }
+    }
+
+    fn focus(&self) {
+        match self {
+            PaneId::Terminal(id) => focus_terminal_pane(*id, false),
+            PaneId::Plugin(id) => focus_plugin_pane(*id, false),
         }
     }
 
     fn hide(&self) {
-        if self.plugin {
-            hide_plugin_pane(self.id);
-        } else {
-            hide_terminal_pane(self.id);
+        match self {
+            PaneId::Terminal(id) => hide_terminal_pane(*id),
+            PaneId::Plugin(id) => hide_plugin_pane(*id),
         }
     }
 }
 
-#[derive(Debug, Default, Clone)]
+impl From<&PaneInfo> for PaneId {
+    fn from(pane: &PaneInfo) -> Self {
+        Self::new(pane.id, pane.is_plugin)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum PaneFocus {
+    Tiled(PaneId),
+    Floating(PaneId),
+}
+
+impl PaneFocus {
+    fn new(id: impl Into<PaneId>, floating: bool) -> Self {
+        if floating {
+            Self::Floating(id.into())
+        } else {
+            Self::Tiled(id.into())
+        }
+    }
+
+    fn id(&self) -> PaneId {
+        match self {
+            PaneFocus::Tiled(id) => id.clone(),
+            PaneFocus::Floating(id) => id.clone(),
+        }
+    }
+
+    fn floating(&self) -> bool {
+        matches!(self, PaneFocus::Floating(_))
+    }
+}
+
+impl From<&PaneInfo> for PaneFocus {
+    fn from(pane: &PaneInfo) -> Self {
+        Self::new(pane, pane.is_floating)
+    }
+}
+
+#[derive(Debug, Clone)]
 struct DashPane {
     title: String,
-    id: u32,
-    // todo: pane type enum
-    plugin: bool,
+    id: PaneId,
     editor: bool,
 }
 
-impl DashPane {
-    fn focus(&self) {
-        if self.plugin {
-            focus_plugin_pane(self.id, false);
-        } else {
-            focus_terminal_pane(self.id, false);
-        }
-    }
-}
-
-#[derive(Default)]
 struct PluginState {
     status: PluginStatus,
     tab: usize,
@@ -68,14 +98,39 @@ struct PluginState {
     prev_focus: Option<PaneFocus>,
     last_focused_editor: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
-    dash_panes: HashMap<String, DashPane>,
+    dash_panes: HashMap<PaneId, DashPane>,
+    dash_pane_labels: HashMap<String, PaneId>,
     label_len: u8,
     label_input: String,
     label_alphabet: Vec<char>,
-    dash_pane_id: u32,
+    dash_pane_id: PaneId,
     palette: Palette,
     columns: usize,
     rows: usize,
+}
+
+// there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
+impl Default for PluginState {
+    fn default() -> Self {
+        Self {
+            status: PluginStatus::Init,
+            tab: 0,
+            floating: false,
+            current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
+            prev_focus: None,
+            last_focused_editor: None,
+            all_focused_panes: Default::default(),
+            dash_panes: Default::default(),
+            dash_pane_labels: Default::default(),
+            label_len: 1,
+            label_input: Default::default(),
+            label_alphabet: Default::default(),
+            dash_pane_id: PaneId::Plugin(0),
+            palette: Default::default(),
+            columns: 0,
+            rows: 0,
+        }
+    }
 }
 
 register_plugin!(PluginState);
@@ -89,7 +144,7 @@ impl PluginState {
         if let PluginStatus::Init = self.status {
             match panes
                 .iter()
-                .find(|(_, panes)| panes.iter().any(|p| p.id == self.dash_pane_id))
+                .find(|(_, panes)| panes.iter().any(|p| &PaneId::from(p) == &self.dash_pane_id))
                 .map(|(tab, _)| *tab)
             {
                 Some(tab) => {
@@ -105,6 +160,13 @@ impl PluginState {
         true
     }
 
+    fn dash_pane_label_pairs(&self) -> Vec<(&DashPane, &str)> {
+        self.dash_pane_labels
+            .iter()
+            .filter_map(|(label, id)| self.dash_panes.get(id).map(|p| (p, label.as_str())))
+            .collect()
+    }
+
     fn clear(&mut self) {
         self.label_input.clear();
     }
@@ -118,9 +180,8 @@ impl PluginState {
 
     fn map_pane(&self, pane: &PaneInfo) -> DashPane {
         DashPane {
-            id: pane.id,
+            id: pane.into(),
             title: pane.title.clone(),
-            plugin: pane.is_plugin,
             editor: self.is_editor_pane(pane),
         }
     }
@@ -140,50 +201,53 @@ impl PluginState {
                     && p.is_floating == self.floating
                     && (
                         // not the current focused pane or `last_focused_editor` has not been set yet
-                        (self.current_focus.id != p.id
-                            || self.current_focus.floating != p.is_floating)
-                            || self.last_focused_editor.is_none())
+                        self.current_focus != PaneFocus::from(*p) || self.last_focused_editor.is_none())
             })
             .cloned()
     }
 
     fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
         eprintln!("Focus change: {}", focused_pane.title);
-        let editor = self.is_editor_pane(focused_pane);
         self.prev_focus = Some(std::mem::replace(
             &mut self.current_focus,
-            PaneFocus {
-                id: focused_pane.id,
-                floating: self.floating,
-                plugin: focused_pane.is_plugin,
-                editor,
-            },
+            focused_pane.into(),
         ));
 
-        if let Some(focus) = &self.last_focused_editor {
-            if self.current_focus.editor && focus.id != self.current_focus.id {
-                eprintln!(
-                    "Hide prev editor pane: {:?}, current_focus: {:?}, focused: {:?}",
-                    focus, self.current_focus, focused_pane
-                );
-                focus.hide();
+        if let Some(last_focused_editor) = &self.last_focused_editor {
+            if let Some(current_dash_pane) = self.dash_panes.get(&self.current_focus.id()) {
+                if current_dash_pane.editor && last_focused_editor != &self.current_focus {
+                    eprintln!(
+                        "Hide prev editor pane: {:?}, current_focus: {:?}, focused: {:?}",
+                        current_dash_pane.title, self.current_focus, focused_pane
+                    );
+                    last_focused_editor.id().hide();
+                } else {
+                    eprintln!(
+                        "Keeping prev editor pane: {}, {:?}",
+                        current_dash_pane.title, self.last_focused_editor
+                    );
+                }
             } else {
-                eprintln!(
-                    "Keeping prev editor pane: {}, {:?}",
-                    self.current_focus.editor, self.last_focused_editor
-                );
+                eprintln!("Dash pane [{:?}] not found", last_focused_editor.id());
             }
         }
 
-        if self.current_focus.editor {
-            self.last_focused_editor = Some(self.current_focus.clone());
+        if let Some(current_pane) = self.dash_panes.get(&self.current_focus.id()) {
+            if current_pane.editor {
+                self.last_focused_editor = Some(self.current_focus.clone());
+            }
+        } else {
+            eprintln!(
+                "Currently focused Dash pane [{:?}] not found",
+                self.current_focus
+            );
         }
 
         if self.status != PluginStatus::Editing
-            && self.current_focus.floating
-            && self.current_focus.id == self.dash_pane_id
+            && self.current_focus.floating()
+            && self.current_focus.id() == self.dash_pane_id
         {
-            eprintln!("switching to Dashing state: {}", self.current_focus.id);
+            eprintln!("switching to Dashing state: {:?}", self.current_focus);
             self.status = PluginStatus::Dashing;
         }
     }
@@ -191,7 +255,7 @@ impl PluginState {
 
 impl ZellijPlugin for PluginState {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
-        self.dash_pane_id = get_plugin_ids().plugin_id;
+        self.dash_pane_id = PaneId::new(get_plugin_ids().plugin_id, true);
         self.label_alphabet = configuration
             .get("label_alphabet")
             .map(|alphabet| alphabet.trim().to_lowercase())
@@ -216,7 +280,7 @@ impl ZellijPlugin for PluginState {
         match event {
             Event::Key(Key::Esc) => {
                 if let Some(pane) = &self.prev_focus {
-                    pane.focus();
+                    pane.id().focus();
                 }
                 self.status = PluginStatus::Editing;
                 eprintln!("switching editing on dash cancel");
@@ -235,14 +299,9 @@ impl ZellijPlugin for PluginState {
                     self.label_input = self.label_input.trim().to_string();
                 }
 
-                if let Some(pane) = self.dash_panes.get(&self.label_input) {
+                if let Some(pane) = self.dash_pane_labels.get(&self.label_input) {
                     pane.focus();
-                    self.current_focus = PaneFocus {
-                        id: pane.id,
-                        floating: false,
-                        plugin: pane.plugin,
-                        editor: pane.editor,
-                    };
+                    self.current_focus = PaneFocus::new(pane.clone(), false);
                     self.clear();
                     self.status = PluginStatus::Editing;
                     eprintln!("switching to editing on dash");
@@ -280,7 +339,7 @@ impl ZellijPlugin for PluginState {
                         .iter()
                         .filter(|p| {
                             p.is_selectable
-                                && p.id != self.dash_pane_id
+                                && PaneId::from(*p) != self.dash_pane_id
                                 && !p.title.ends_with("-bar")
                         })
                         .collect();
@@ -291,11 +350,11 @@ impl ZellijPlugin for PluginState {
                     };
 
                     let dash_pane_ids: HashSet<_> =
-                        self.dash_panes.values().map(|p| p.id).collect();
+                        self.dash_panes.values().map(|p| p.id.clone()).collect();
 
                     let mut unlabeled_panes = Vec::new();
                     for pane in &visible_panes {
-                        if dash_pane_ids.contains(&pane.id) {
+                        if dash_pane_ids.contains(&PaneId::from(*pane)) {
                             continue;
                         }
 
@@ -307,14 +366,16 @@ impl ZellijPlugin for PluginState {
                             .take(label_len)
                             .collect::<String>()
                             .to_lowercase();
-                        if !self.dash_panes.contains_key(&preferred_label)
+                        if !self.dash_pane_labels.contains_key(&preferred_label)
                             && preferred_label
                                 .chars()
                                 .all(|c| self.label_alphabet.contains(&c))
                         {
                             let dash_pane = self.map_pane(pane);
                             eprintln!("new dash pane: {dash_pane:?}");
-                            self.dash_panes.insert(preferred_label, dash_pane);
+                            self.dash_pane_labels
+                                .insert(preferred_label, dash_pane.id.clone());
+                            self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
                         } else {
                             unlabeled_panes.push(pane);
                         }
@@ -325,8 +386,10 @@ impl ZellijPlugin for PluginState {
                         for pane in unlabeled_panes {
                             while let Some(label) = alpha.next() {
                                 let label = label.iter().cloned().collect();
-                                if !self.dash_panes.contains_key(&label) {
-                                    self.dash_panes.insert(label, self.map_pane(pane));
+                                let dash_pane = self.map_pane(pane);
+                                if !self.dash_pane_labels.contains_key(&label) {
+                                    self.dash_pane_labels.insert(label, dash_pane.id.clone());
+                                    self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
                                     break;
                                 }
                             }
@@ -337,7 +400,8 @@ impl ZellijPlugin for PluginState {
 
                     // cleanup closed panes
                     if self.dash_panes.len() > visible_panes.len() {
-                        let visible_ids: HashSet<_> = visible_panes.iter().map(|p| p.id).collect();
+                        let visible_ids: HashSet<_> =
+                            visible_panes.iter().map(|p| PaneId::from(*p)).collect();
                         self.dash_panes.retain(|_, p| visible_ids.contains(&p.id));
                     }
 
@@ -374,8 +438,8 @@ impl ZellijPlugin for PluginState {
         println!("{padding}{}\n", color_bold(self.palette.fg, "Editor"));
 
         // list
-        for (label, pane) in self.dash_panes.iter().filter(|(_, pane)| {
-            pane.editor && (self.current_focus.floating || self.current_focus.id == pane.id)
+        for (pane, label) in self.dash_pane_label_pairs().iter().filter(|(pane, _)| {
+            pane.editor && (self.current_focus.floating() || self.current_focus.id() == pane.id)
         }) {
             let label =
                 if !self.label_input.trim().is_empty() && label.starts_with(&self.label_input) {
@@ -396,13 +460,16 @@ impl ZellijPlugin for PluginState {
             println!("{padding}[{label}] {}", pane.title);
         }
 
-        if let Some(pane) = &self.prev_focus {
-            // todo: fix
-            // println!(
-            //     "\n{padding}{} {}",
-            //     color_bold(self.palette.red, "[ESC]"),
-            //     pane.title
-            // );
+        if let Some(focus) = &self.prev_focus {
+            if let Some(pane) = self.dash_panes.get(&focus.id()) {
+                println!(
+                    "\n{padding}{} {}",
+                    color_bold(self.palette.red, "[ESC]"),
+                    pane.title
+                );
+            } else {
+                eprintln!("Prev focus pane [{:?}] not found", focus);
+            }
         }
     }
 }
