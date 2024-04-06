@@ -4,26 +4,26 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use zellij_tile::prelude::*;
 use zellij_tile_utils::palette_match;
 
-#[derive(Default)]
+// todo: move some PluginState fields into the variants
+#[derive(Debug, Default, PartialEq)]
 enum PluginStatus {
     #[default]
     Init,
-    Hidden,
-    Hiding,
-    Focused,
+    Editing,
+    Dashing,
 }
 
-#[derive(Default, Clone)]
-struct DashPane {
-    title: String,
+#[derive(Debug, Default, Clone)]
+struct PaneFocus {
     id: u32,
-    is_plugin: bool,
-    is_editor: bool,
+    floating: bool,
+    plugin: bool,
+    editor: bool,
 }
 
-impl DashPane {
+impl PaneFocus {
     fn focus(&self) {
-        if self.is_plugin {
+        if self.plugin {
             focus_plugin_pane(self.id, false);
         } else {
             focus_terminal_pane(self.id, false);
@@ -31,10 +31,29 @@ impl DashPane {
     }
 
     fn hide(&self) {
-        if self.is_plugin {
+        if self.plugin {
             hide_plugin_pane(self.id);
         } else {
             hide_terminal_pane(self.id);
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct DashPane {
+    title: String,
+    id: u32,
+    // todo: pane type enum
+    plugin: bool,
+    editor: bool,
+}
+
+impl DashPane {
+    fn focus(&self) {
+        if self.plugin {
+            focus_plugin_pane(self.id, false);
+        } else {
+            focus_terminal_pane(self.id, false);
         }
     }
 }
@@ -43,9 +62,12 @@ impl DashPane {
 struct PluginState {
     status: PluginStatus,
     tab: usize,
-    focus_floating: bool,
-    prev_focus: Option<DashPane>,
-    last_editor_focused_pane_id: Option<u32>,
+    // not part of focus fields because it's part of `TabUpdate`
+    floating: bool,
+    current_focus: PaneFocus,
+    prev_focus: Option<PaneFocus>,
+    last_focused_editor: Option<PaneFocus>,
+    all_focused_panes: Vec<PaneInfo>,
     dash_panes: HashMap<String, DashPane>,
     label_len: u8,
     label_input: String,
@@ -59,19 +81,108 @@ struct PluginState {
 register_plugin!(PluginState);
 
 impl PluginState {
+    fn check_itialised(&mut self, panes: &HashMap<usize, Vec<PaneInfo>>) -> bool {
+        if self.columns == 0 {
+            return false;
+        }
+
+        if let PluginStatus::Init = self.status {
+            match panes
+                .iter()
+                .find(|(_, panes)| panes.iter().any(|p| p.id == self.dash_pane_id))
+                .map(|(tab, _)| *tab)
+            {
+                Some(tab) => {
+                    self.tab = tab;
+                    self.status = PluginStatus::Editing;
+                }
+                None => {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
     fn clear(&mut self) {
         self.label_input.clear();
+    }
+
+    fn is_editor_pane(&self, pane: &PaneInfo) -> bool {
+        !pane.is_floating
+            && pane.is_selectable
+            && (pane.pane_x == 0 && pane.pane_columns > (self.columns / 2)
+                || pane.pane_y <= 2 && pane.pane_rows > (self.rows / 2))
     }
 
     fn map_pane(&self, pane: &PaneInfo) -> DashPane {
         DashPane {
             id: pane.id,
             title: pane.title.clone(),
-            is_plugin: pane.is_plugin,
-            is_editor: !pane.is_floating
-                && pane.is_selectable
-                && (pane.pane_x == 0 && pane.pane_columns > (self.columns / 2)
-                    || pane.pane_y <= 2 && pane.pane_rows > (self.rows / 2)),
+            plugin: pane.is_plugin,
+            editor: self.is_editor_pane(pane),
+        }
+    }
+
+    fn check_focus_change(&mut self) {
+        if let Some(focused_pane) = self.has_focus_changed(&self.all_focused_panes) {
+            self.on_focus_change(&focused_pane);
+        }
+    }
+
+    fn has_focus_changed(&self, tab_panes: &[PaneInfo]) -> Option<PaneInfo> {
+        tab_panes
+            .iter()
+            .find(|p| {
+                p.is_focused
+                    // both a tiled and a floating pane can be focused (but only the top one is relevant here)
+                    && p.is_floating == self.floating
+                    && (
+                        // not the current focused pane or `last_focused_editor` has not been set yet
+                        (self.current_focus.id != p.id
+                            || self.current_focus.floating != p.is_floating)
+                            || self.last_focused_editor.is_none())
+            })
+            .cloned()
+    }
+
+    fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
+        eprintln!("Focus change: {}", focused_pane.title);
+        let editor = self.is_editor_pane(focused_pane);
+        self.prev_focus = Some(std::mem::replace(
+            &mut self.current_focus,
+            PaneFocus {
+                id: focused_pane.id,
+                floating: self.floating,
+                plugin: focused_pane.is_plugin,
+                editor,
+            },
+        ));
+
+        // self.last_focused_editor.is_some_and(|f| self.current_focus.editor )
+        if let Some(focus) = &self.last_focused_editor {
+            if self.current_focus.editor && focus.id != self.current_focus.id {
+                eprintln!("Hide prev editor pane: {}", focus.id);
+                focus.hide();
+            } else {
+                eprintln!(
+                    "Keeping prev editor pane: {}, {:?}",
+                    self.current_focus.editor, self.last_focused_editor
+                );
+            }
+        }
+
+        if self.current_focus.editor {
+            self.last_focused_editor = Some(self.current_focus.clone());
+        }
+
+        if self.status != PluginStatus::Editing
+            && self.current_focus.floating
+            && self.current_focus.id == self.dash_pane_id
+        {
+            eprintln!("switching to Dashing state: {}", self.current_focus.id);
+            self.status = PluginStatus::Dashing;
         }
     }
 }
@@ -105,8 +216,8 @@ impl ZellijPlugin for PluginState {
                 if let Some(pane) = &self.prev_focus {
                     pane.focus();
                 }
-                self.status = PluginStatus::Hiding;
-                eprintln!("switching to Hiding state");
+                self.status = PluginStatus::Editing;
+                eprintln!("switching editing on dash cancel");
                 self.clear();
                 return true;
             }
@@ -124,95 +235,44 @@ impl ZellijPlugin for PluginState {
 
                 if let Some(pane) = self.dash_panes.get(&self.label_input) {
                     pane.focus();
-                    self.prev_focus = Some(pane.clone());
+                    self.current_focus = PaneFocus {
+                        id: pane.id,
+                        floating: false,
+                        plugin: pane.plugin,
+                        editor: pane.editor,
+                    };
                     self.clear();
-                    self.status = PluginStatus::Hiding;
-                    eprintln!("switching to Hiding state");
+                    self.status = PluginStatus::Editing;
+                    eprintln!("switching to editing on dash");
                 }
 
                 return true;
             }
             Event::Key(_) => {}
-            Event::ModeUpdate(ModeInfo { mode, style, .. }) => {
+            Event::ModeUpdate(ModeInfo { style, .. }) => {
                 self.palette = style.colors;
-                eprintln!("mode update: {:?}", mode);
                 return true;
             }
             Event::TabUpdate(tabs) => {
                 if let Some(tab) = tabs.get(self.tab) {
-                    self.focus_floating = tab.are_floating_panes_visible;
-                    eprintln!("tab update: floating: {}", self.focus_floating);
+                    let floating = tab.are_floating_panes_visible;
+                    if self.floating != floating {
+                        self.floating = floating;
+                        self.check_focus_change();
+                        eprintln!(
+                            "TabUpdate - floating changed: {}",
+                            tab.are_floating_panes_visible
+                        );
+                    }
                 }
             }
             Event::PaneUpdate(PaneManifest { panes }) => {
-                eprintln!("pane update - floating: {}", self.focus_floating);
-                if self.columns == 0 {
-                    return true;
-                }
-
-                if let PluginStatus::Init = self.status {
-                    match panes
-                        .iter()
-                        .find(|(_, panes)| panes.iter().any(|p| p.id == self.dash_pane_id))
-                        .map(|(tab, _)| *tab)
-                    {
-                        Some(tab) => {
-                            self.tab = tab;
-                        }
-                        None => {
-                            return false;
-                        }
-                    }
+                if !self.check_itialised(&panes) {
+                    eprintln!("Not init: bailing");
+                    return false;
                 }
 
                 if let Some(tab_panes) = panes.get(&self.tab) {
-                    if let Some(focused) = tab_panes.iter().find(|p| {
-                        p.is_focused
-                            && p.is_floating == self.focus_floating
-                            && p.id != self.dash_pane_id
-                    }) {
-                        let dash_pane = self.map_pane(focused);
-                        if dash_pane.is_editor {
-                            self.last_editor_focused_pane_id = Some(dash_pane.id);
-                        }
-                        self.prev_focus = Some(dash_pane);
-                    }
-
-                    match self.status {
-                        PluginStatus::Hidden => {
-                            if let Some(dash_pane) = tab_panes
-                                .iter()
-                                .find(|p| p.id == self.dash_pane_id && p.is_plugin)
-                            {
-                                if dash_pane.is_focused {
-                                    eprintln!("switching to focused state: {}, focused: {}, suppressed: {}", dash_pane.title, dash_pane.is_focused, dash_pane.is_suppressed);
-                                    self.status = PluginStatus::Focused;
-                                } else {
-                                    return false;
-                                }
-                            } else {
-                                return false;
-                            }
-                        }
-                        PluginStatus::Hiding => {
-                            let visible_editor_id = self
-                                .prev_focus
-                                .as_ref()
-                                .and_then(|p| if p.is_editor { Some(p.id) } else { None })
-                                .or_else(|| self.last_editor_focused_pane_id);
-                            for p in self.dash_panes.values().filter(|p| {
-                                p.is_editor
-                                    && visible_editor_id.is_some_and(|editor_id| p.id != editor_id)
-                            }) {
-                                p.hide();
-                            }
-                            eprintln!("switching to hidden state");
-                            self.status = PluginStatus::Hidden;
-                            return false;
-                        }
-                        _ => {}
-                    }
-
                     // todo: maybe exclude floating?
                     let visible_panes: Vec<_> = tab_panes
                         .iter()
@@ -277,6 +337,12 @@ impl ZellijPlugin for PluginState {
                         self.dash_panes.retain(|_, p| visible_ids.contains(&p.id));
                     }
 
+                    // collect all focused panes
+                    // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
+                    self.all_focused_panes =
+                        tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
+                    self.check_focus_change();
+
                     return true;
                 }
 
@@ -304,11 +370,9 @@ impl ZellijPlugin for PluginState {
         println!("{padding}{}\n", color_bold(self.palette.fg, "Editor"));
 
         // list
-        for (label, pane) in self.dash_panes.iter() {
-            if !pane.is_editor || self.prev_focus.as_ref().is_some_and(|p| p.id == pane.id) {
-                continue;
-            }
-
+        for (label, pane) in self.dash_panes.iter().filter(|(_, pane)| {
+            pane.editor && (self.current_focus.floating || self.current_focus.id == pane.id)
+        }) {
             let label =
                 if !self.label_input.trim().is_empty() && label.starts_with(&self.label_input) {
                     format!(
@@ -329,11 +393,12 @@ impl ZellijPlugin for PluginState {
         }
 
         if let Some(pane) = &self.prev_focus {
-            println!(
-                "\n{padding}{} {}",
-                color_bold(self.palette.red, "[ESC]"),
-                pane.title
-            );
+            // todo: fix
+            // println!(
+            //     "\n{padding}{} {}",
+            //     color_bold(self.palette.red, "[ESC]"),
+            //     pane.title
+            // );
         }
     }
 }
