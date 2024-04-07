@@ -267,6 +267,7 @@ impl ZellijPlugin for PluginState {
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
+            PermissionType::RunCommands,
         ]);
         subscribe(&[
             EventType::Key,
@@ -399,10 +400,34 @@ impl ZellijPlugin for PluginState {
                     self.label_len = label_len as u8;
 
                     // cleanup closed panes
+                    let dash_panes_len = self.dash_panes.len();
                     if self.dash_panes.len() > visible_panes.len() {
                         let visible_ids: HashSet<_> =
                             visible_panes.iter().map(|p| PaneId::from(*p)).collect();
                         self.dash_panes.retain(|_, p| visible_ids.contains(&p.id));
+                        let remaining_pane_ids: HashSet<_> = self.dash_panes.keys().collect();
+                        self.dash_pane_labels
+                            .retain(|_, id| remaining_pane_ids.get(id).is_some());
+                    }
+
+                    let new_dash_panes_len = self.dash_panes.len();
+                    if new_dash_panes_len < dash_panes_len && new_dash_panes_len > 0 {
+                        if !self.dash_panes.contains_key(&self.current_focus.id()) {
+                            // focus editor pane if the focused pane was closed
+                            if let Some(editor_pane) =
+                                self.dash_panes.values().filter(|p| p.editor).next()
+                            {
+                                editor_pane.id.focus();
+                            }
+                        }
+                    } else if self.dash_panes.values().filter(|p| p.editor).count() == 0 {
+                        // open a new editor pane if all editor panes were closed
+                        eprintln!("No more editors");
+                        open_command_pane(CommandToRun {
+                            path: "hx".into(),
+                            args: vec![".".to_string()],
+                            cwd: None,
+                        })
                     }
 
                     // collect all focused panes
