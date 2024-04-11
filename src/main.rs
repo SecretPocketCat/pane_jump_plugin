@@ -207,7 +207,7 @@ impl PluginState {
     }
 
     fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
-        eprintln!("Focus change: {}", focused_pane.title);
+        // eprintln!("Focus change: {}", focused_pane.title);
         self.prev_focus = Some(std::mem::replace(
             &mut self.current_focus,
             focused_pane.into(),
@@ -216,19 +216,14 @@ impl PluginState {
         if let Some(last_focused_editor) = &self.last_focused_editor {
             if let Some(current_dash_pane) = self.dash_panes.get(&self.current_focus.id()) {
                 if current_dash_pane.editor && last_focused_editor != &self.current_focus {
-                    eprintln!(
-                        "Hide prev editor pane: {:?}, current_focus: {:?}, focused: {:?}",
-                        current_dash_pane.title, self.current_focus, focused_pane
-                    );
+                    // eprintln!(
+                    //     "Hide prev editor pane: {:?}, current_focus: {:?}, focused: {:?}",
+                    //     current_dash_pane.title, self.current_focus, focused_pane
+                    // );
                     last_focused_editor.id().hide();
-                } else {
-                    eprintln!(
-                        "Keeping prev editor pane: {}, {:?}",
-                        current_dash_pane.title, self.last_focused_editor
-                    );
                 }
             } else {
-                eprintln!("Dash pane [{:?}] not found", last_focused_editor.id());
+                // eprintln!("Dash pane [{:?}] not found", last_focused_editor.id());
             }
         }
 
@@ -237,17 +232,17 @@ impl PluginState {
                 self.last_focused_editor = Some(self.current_focus.clone());
             }
         } else {
-            eprintln!(
-                "Currently focused Dash pane [{:?}] not found",
-                self.current_focus
-            );
+            // eprintln!(
+            //     "Currently focused Dash pane [{:?}] not found",
+            //     self.current_focus
+            // );
         }
 
         if self.status != PluginStatus::Editing
             && self.current_focus.floating()
             && self.current_focus.id() == self.dash_pane_id
         {
-            eprintln!("switching to Dashing state: {:?}", self.current_focus);
+            // eprintln!("switching to Dashing state: {:?}", self.current_focus);
             self.status = PluginStatus::Dashing;
         }
     }
@@ -284,7 +279,7 @@ impl ZellijPlugin for PluginState {
                     pane.id().focus();
                 }
                 self.status = PluginStatus::Editing;
-                eprintln!("switching editing on dash cancel");
+                // eprintln!("switching editing on dash cancel");
                 self.clear();
                 return true;
             }
@@ -305,7 +300,7 @@ impl ZellijPlugin for PluginState {
                     self.current_focus = PaneFocus::new(pane.clone(), false);
                     self.clear();
                     self.status = PluginStatus::Editing;
-                    eprintln!("switching to editing on dash");
+                    // eprintln!("switching to editing on dash");
                 }
 
                 return true;
@@ -321,16 +316,15 @@ impl ZellijPlugin for PluginState {
                     if self.floating != floating {
                         self.floating = floating;
                         self.check_focus_change();
-                        eprintln!(
-                            "TabUpdate - floating changed: {}",
-                            tab.are_floating_panes_visible
-                        );
+                        // eprintln!(
+                        //     "TabUpdate - floating changed: {}",
+                        //     tab.are_floating_panes_visible
+                        // );
                     }
                 }
             }
             Event::PaneUpdate(PaneManifest { panes }) => {
                 if !self.check_itialised(&panes) {
-                    eprintln!("Not init: bailing");
                     return false;
                 }
 
@@ -359,8 +353,6 @@ impl ZellijPlugin for PluginState {
                             continue;
                         }
 
-                        eprintln!("Adding a dash pane: {}", pane.title);
-
                         let preferred_label = pane
                             .title
                             .chars()
@@ -373,7 +365,7 @@ impl ZellijPlugin for PluginState {
                                 .all(|c| self.label_alphabet.contains(&c))
                         {
                             let dash_pane = self.map_pane(pane);
-                            eprintln!("new dash pane: {dash_pane:?}");
+                            // eprintln!("new dash pane: {dash_pane:?}");
                             self.dash_pane_labels
                                 .insert(preferred_label, dash_pane.id.clone());
                             self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
@@ -493,7 +485,7 @@ impl ZellijPlugin for PluginState {
                     pane.title
                 );
             } else {
-                eprintln!("Prev focus pane [{:?}] not found", focus);
+                // eprintln!("Prev focus pane [{:?}] not found", focus);
             }
         }
     }
