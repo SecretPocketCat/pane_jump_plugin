@@ -1,6 +1,10 @@
 use crate::{utils::color_bold, PluginState, PluginStatus};
 
 impl PluginState {
+    pub(crate) fn should_render(&self) -> bool {
+        matches!(self.status, PluginStatus::Dash { .. })
+    }
+
     pub(crate) fn render_pane(&mut self, rows: usize, cols: usize) {
         self.set_rows(rows);
         self.set_columns(cols);
@@ -44,6 +48,8 @@ impl PluginState {
                     // eprintln!("Prev focus pane [{:?}] not found", focus);
                 }
             }
+        } else {
+            println!("Not in dash status!");
         }
     }
 }

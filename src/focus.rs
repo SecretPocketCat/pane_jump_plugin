@@ -43,7 +43,7 @@ impl PluginState {
             }
         }
 
-        if self.status != PluginStatus::Editor
+        if !self.status.dashing()
             && self.current_focus.floating()
             && self.current_focus.id() == self.dash_pane_id
         {

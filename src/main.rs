@@ -1,6 +1,8 @@
+use file_picker::PickerStatus;
 use init::PluginInit;
 use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap};
+use uuid::Uuid;
 use wavedash::DashPane;
 use zellij_tile::prelude::*;
 
@@ -8,6 +10,7 @@ mod file_picker;
 mod focus;
 mod init;
 mod input;
+mod message;
 mod pane;
 mod render;
 mod utils;
@@ -17,9 +20,15 @@ mod wavedash;
 #[derive(Debug, PartialEq)]
 enum PluginStatus {
     Init(PluginInit),
-    FilePicker,
     Editor,
+    FilePicker(PickerStatus),
     Dash { input: String },
+}
+
+impl PluginStatus {
+    pub(crate) fn dashing(&self) -> bool {
+        matches!(self, Self::Dash { .. })
+    }
 }
 
 struct PluginState {
@@ -37,6 +46,7 @@ struct PluginState {
     palette: Palette,
     columns: usize,
     rows: usize,
+    msg_client_id: Uuid,
 
     // todo: replace by fuzzy search
     dash_pane_labels: HashMap<String, PaneId>,
@@ -64,6 +74,7 @@ impl Default for PluginState {
             palette: Default::default(),
             columns: 0,
             rows: 0,
+            msg_client_id: Uuid::new_v4(),
         }
     }
 }
@@ -87,21 +98,25 @@ impl ZellijPlugin for PluginState {
 
     fn update(&mut self, event: Event) -> bool {
         match event {
-            Event::Key(key) => return self.handle_key(key),
+            Event::Key(key) => self.handle_key(key),
             Event::ModeUpdate(ModeInfo { style, .. }) => {
                 if !self.initialised() {
                     self.set_palette(style.colors);
                 }
-
-                return true;
             }
-            Event::TabUpdate(tabs) => return self.handle_tab_update(&tabs),
-            Event::PaneUpdate(panes) => return self.handle_pane_update(panes),
+            Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
+            Event::PaneUpdate(panes) => self.handle_pane_update(panes),
             _ => unimplemented!("{event:?}"),
         }
+
+        self.should_render()
     }
 
     fn render(&mut self, rows: usize, cols: usize) {
         self.render_pane(rows, cols);
+    }
+
+    fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
+        self.handle_pipe_message(pipe_message)
     }
 }

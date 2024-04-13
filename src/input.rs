@@ -1,9 +1,28 @@
 use zellij_tile::prelude::Key;
 
-use crate::{pane::PaneFocus, PluginState, PluginStatus};
+use crate::{file_picker::PickerStatus, pane::PaneFocus, PluginState, PluginStatus};
 
 impl PluginState {
-    pub(crate) fn handle_key(&mut self, key: Key) -> bool {
+    pub(crate) fn handle_key(&mut self, key: Key) {
+        match &self.status {
+            PluginStatus::FilePicker(status) => self.handle_filepicker_key(key, status.clone()),
+            PluginStatus::Editor => self.handle_dash_key(key),
+            _ => {}
+        }
+    }
+
+    fn handle_filepicker_key(&mut self, key: Key, picker_status: PickerStatus) {
+        match key {
+            Key::Esc => {
+                if let PickerStatus::Picking(id) = picker_status {
+                    id.close();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_dash_key(&mut self, key: Key) {
         if let PluginStatus::Dash { input } = &mut self.status {
             // todo: proper input handling - use some crate for that
             match key {
@@ -37,12 +56,8 @@ impl PluginState {
                         // self.last_label_input = Some(input.clone());
                     }
                 }
-                _ => return false,
+                _ => {}
             }
-
-            return true;
         }
-
-        false
     }
 }

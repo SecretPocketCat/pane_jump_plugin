@@ -18,17 +18,18 @@ macro_rules! init_plugin_field {
                 if let PluginStatus::Init(init) = &mut self.status {
                     init.$param = Some($param);
 
-                    if let (Some(columns), Some(rows), Some(palette), Some(tab)) = (
-                        init.columns.take(),
-                        init.rows.take(),
-                        init.palette.take(),
-                        init.tab.take(),
-                    ) {
+                    if let (Some(columns), Some(rows), Some(palette), Some(tab)) =
+                        (init.columns, init.rows, init.palette, init.tab)
+                    {
                         self.columns = columns;
                         self.rows = rows;
                         self.palette = palette;
                         self.tab = tab;
                         self.status = PluginStatus::Editor;
+
+                        eprintln!("yay, initialised");
+                    } else {
+                        eprintln!("not ready yet: {:?}", init);
                     }
                 } else {
                     self.$param = $param;
