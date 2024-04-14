@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use itertools::Itertools;
 use zellij_tile::{
     prelude::{CommandToRun, PaneInfo, PaneManifest, TabInfo},
     shim::{
@@ -11,7 +10,7 @@ use zellij_tile::{
 
 use crate::{file_picker::PickerStatus, wavedash::DashPane, PluginState, PluginStatus};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PaneId {
     Terminal(u32),
     Plugin(u32),
@@ -155,59 +154,19 @@ impl PluginState {
                                 && !p.title.ends_with("-bar")
                         })
                         .collect();
-                    let label_len = if visible_panes.len() <= self.label_alphabet.len() {
-                        1
-                    } else {
-                        2
-                    };
 
                     let dash_pane_ids: HashSet<_> =
                         self.dash_panes.values().map(|p| p.id.clone()).collect();
 
-                    let mut unlabeled_panes = Vec::new();
                     for pane in &visible_panes {
                         if dash_pane_ids.contains(&PaneId::from(*pane)) {
                             continue;
                         }
 
-                        let preferred_label = pane
-                            .title
-                            .chars()
-                            .take(label_len)
-                            .collect::<String>()
-                            .to_lowercase();
-                        if !self.dash_pane_labels.contains_key(&preferred_label)
-                            && preferred_label
-                                .chars()
-                                .all(|c| self.label_alphabet.contains(&c))
-                        {
-                            let dash_pane = self.map_pane(pane);
-                            eprintln!("new dash pane: {dash_pane:?}");
-                            self.dash_pane_labels
-                                .insert(preferred_label, dash_pane.id.clone());
-                            self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
-                        } else {
-                            unlabeled_panes.push(pane);
-                        }
+                        let dash_pane = self.map_pane(pane);
+                        eprintln!("new dash pane: {dash_pane:?}");
+                        self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
                     }
-
-                    if !unlabeled_panes.is_empty() {
-                        let mut alpha = self.label_alphabet.iter().permutations(label_len);
-                        for pane in unlabeled_panes {
-                            while let Some(label) = alpha.next() {
-                                let label = label.iter().cloned().collect();
-                                let dash_pane = self.map_pane(pane);
-                                eprintln!("new dash pane: {dash_pane:?}");
-                                if !self.dash_pane_labels.contains_key(&label) {
-                                    self.dash_pane_labels.insert(label, dash_pane.id.clone());
-                                    self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    self.label_len = label_len as u8;
 
                     // cleanup closed panes
                     let dash_panes_len = self.dash_panes.len();
@@ -215,9 +174,6 @@ impl PluginState {
                         let visible_ids: HashSet<_> =
                             visible_panes.iter().map(|p| PaneId::from(*p)).collect();
                         self.dash_panes.retain(|_, p| visible_ids.contains(&p.id));
-                        let remaining_pane_ids: HashSet<_> = self.dash_panes.keys().collect();
-                        self.dash_pane_labels
-                            .retain(|_, id| remaining_pane_ids.get(id).is_some());
                     }
 
                     let new_dash_panes_len = self.dash_panes.len();

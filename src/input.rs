@@ -1,6 +1,6 @@
 use zellij_tile::prelude::Key;
 
-use crate::{file_picker::PickerStatus, pane::PaneFocus, PluginState, PluginStatus};
+use crate::{file_picker::PickerStatus, PluginState, PluginStatus};
 
 impl PluginState {
     pub(crate) fn handle_key(&mut self, key: Key) {
@@ -16,6 +16,7 @@ impl PluginState {
             Key::Esc => {
                 if let PickerStatus::Picking(id) = picker_status {
                     id.close();
+                    self.status = PluginStatus::Editor;
                 }
             }
             _ => {}
@@ -41,20 +42,8 @@ impl PluginState {
                     }
                 }
                 Key::Char(c) => {
-                    if self.label_len == 1 {
-                        *input = c.to_string();
-                    } else {
-                        input.push(c);
-                        *input = input.trim().to_string();
-                    }
-
-                    if let Some(pane) = self.dash_pane_labels.get(input) {
-                        pane.focus();
-                        self.current_focus = PaneFocus::new(pane.clone(), false);
-                        self.status = PluginStatus::Editor;
-                        // todo:
-                        // self.last_label_input = Some(input.clone());
-                    }
+                    input.push(c);
+                    *input = input.trim().to_string();
                 }
                 _ => {}
             }

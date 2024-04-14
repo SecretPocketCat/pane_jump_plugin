@@ -9,6 +9,7 @@ pub(crate) struct PluginInit {
     rows: Option<usize>,
     palette: Option<Palette>,
     tab: Option<usize>,
+    editor_pane_id: Option<PaneId>,
 }
 
 macro_rules! init_plugin_field {
@@ -18,13 +19,24 @@ macro_rules! init_plugin_field {
                 if let PluginStatus::Init(init) = &mut self.status {
                     init.$param = Some($param);
 
-                    if let (Some(columns), Some(rows), Some(palette), Some(tab)) =
-                        (init.columns, init.rows, init.palette, init.tab)
-                    {
+                    if let (
+                        Some(columns),
+                        Some(rows),
+                        Some(palette),
+                        Some(tab),
+                        Some(editor_pane_id),
+                    ) = (
+                        init.columns,
+                        init.rows,
+                        init.palette,
+                        init.tab,
+                        init.editor_pane_id,
+                    ) {
                         self.columns = columns;
                         self.rows = rows;
                         self.palette = palette;
                         self.tab = tab;
+                        self.editor_pane_id = editor_pane_id;
                         self.status = PluginStatus::Editor;
 
                         eprintln!("yay, initialised");
@@ -44,6 +56,7 @@ init_plugin_field!(rows, usize, set_rows);
 init_plugin_field!(columns, usize, set_columns);
 init_plugin_field!(palette, Palette, set_palette);
 init_plugin_field!(tab, usize, set_tab);
+init_plugin_field!(editor_pane_id, PaneId, set_editor_pane_id);
 
 impl PluginState {
     pub(crate) fn initialised(&self) -> bool {
@@ -52,6 +65,7 @@ impl PluginState {
                 && init.rows.is_some()
                 && init.palette.is_some()
                 && init.tab.is_some()
+                && init.editor_pane_id.is_some()
         } else {
             true
         }
@@ -72,6 +86,19 @@ impl PluginState {
                 .map(|(tab, _)| *tab)
             {
                 self.set_tab(tab);
+                return self.initialised();
+            }
+        }
+
+        if matches!(
+            self.status,
+            PluginStatus::Init(PluginInit {
+                editor_pane_id: None,
+                ..
+            })
+        ) {
+            if let Some(pane) = panes.values().flatten().find(|p| p.title == "editor") {
+                self.set_editor_pane_id(pane.into());
                 return self.initialised();
             }
         }

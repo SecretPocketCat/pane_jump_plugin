@@ -7,11 +7,4 @@ pub(crate) struct DashPane {
     pub(crate) editor: bool,
 }
 
-impl PluginState {
-    pub(crate) fn dash_pane_label_pairs(&self) -> Vec<(&DashPane, &str)> {
-        self.dash_pane_labels
-            .iter()
-            .filter_map(|(label, id)| self.dash_panes.get(id).map(|p| (p, label.as_str())))
-            .collect()
-    }
-}
+impl PluginState {}
