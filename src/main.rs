@@ -35,6 +35,7 @@ struct PluginState {
     status: PluginStatus,
     tab: usize,
     editor_pane_id: PaneId,
+    git_pane_id: Option<PaneId>,
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
     current_focus: PaneFocus,
@@ -57,6 +58,7 @@ impl Default for PluginState {
             status: PluginStatus::Init(Default::default()),
             tab: 0,
             editor_pane_id: PaneId::Terminal(0),
+            git_pane_id: None,
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
             prev_focus: None,

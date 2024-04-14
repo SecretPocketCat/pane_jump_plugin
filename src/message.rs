@@ -27,20 +27,25 @@ impl PluginState {
                 Ok(MessageKeybind::FilePicker) => self.open_picker(),
                 Ok(MessageKeybind::FocusEditorPane) => self.editor_pane_id.focus(),
                 Ok(MessageKeybind::HxBufferJumplist) => todo!(),
-                Ok(MessageKeybind::Git) => open_command_pane_floating(
-                    CommandToRun {
-                        path: "lazygit".into(),
-                        args: vec![],
-                        cwd: None,
-                    },
-                    Some(
-                        FloatingPaneCoordinates::default()
-                            .with_x_fixed(0)
-                            .with_y_fixed(0)
-                            .with_width_percent(95)
-                            .with_height_percent(90),
-                    ),
-                ),
+                Ok(MessageKeybind::Git) => match self.git_pane_id {
+                    Some(id) => id.focus(),
+                    None => {
+                        open_command_pane_floating(
+                            CommandToRun {
+                                path: "lazygit".into(),
+                                args: vec![],
+                                cwd: None,
+                            },
+                            Some(
+                                FloatingPaneCoordinates::default()
+                                    .with_x_fixed(0)
+                                    .with_y_fixed(0)
+                                    .with_width_percent(95)
+                                    .with_height_percent(90),
+                            ),
+                        );
+                    }
+                },
                 Err(_) => {
                     eprintln!("Missing name for keybind pipe message {pipe_message:?}");
                 }

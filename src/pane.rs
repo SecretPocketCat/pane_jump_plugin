@@ -1,14 +1,22 @@
 use std::collections::HashSet;
 
+use phf::phf_map;
 use zellij_tile::{
     prelude::{CommandToRun, PaneInfo, PaneManifest, TabInfo},
     shim::{
         close_plugin_pane, close_terminal_pane, focus_plugin_pane, focus_terminal_pane,
-        hide_plugin_pane, hide_terminal_pane, open_command_pane, rename_terminal_pane,
+        hide_plugin_pane, hide_terminal_pane, open_command_pane, rename_plugin_pane,
+        rename_terminal_pane,
     },
 };
 
 use crate::{file_picker::PickerStatus, wavedash::DashPane, PluginState, PluginStatus};
+
+const GIT_PANE_NAME: &str = "git";
+
+static RENAME_PANE: phf::Map<&'static str, &'static str> = phf_map! {
+    "lazygit" => GIT_PANE_NAME,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PaneId {
@@ -43,6 +51,13 @@ impl PaneId {
         match self {
             PaneId::Terminal(id) => close_terminal_pane(*id),
             PaneId::Plugin(id) => close_plugin_pane(*id),
+        }
+    }
+
+    pub(crate) fn rename(&self, new_name: &str) {
+        match self {
+            PaneId::Terminal(id) => rename_terminal_pane(*id, new_name),
+            PaneId::Plugin(id) => rename_plugin_pane(*id, new_name),
         }
     }
 }
@@ -118,6 +133,17 @@ impl PluginState {
         }
 
         if let Some(tab_panes) = panes.get(&self.tab) {
+            for p in tab_panes {
+                if let Some(new_name) = RENAME_PANE.get(&p.title) {
+                    let id = PaneId::from(p);
+                    id.rename(new_name);
+
+                    if *new_name == GIT_PANE_NAME {
+                        self.git_pane_id = Some(id);
+                    }
+                }
+            }
+
             match &self.status {
                 crate::PluginStatus::FilePicker(picker_status) => match picker_status {
                     PickerStatus::OpeningPicker => {
@@ -126,7 +152,7 @@ impl PluginState {
                                 .as_ref()
                                 .is_some_and(|cmd| cmd.contains("yazi --chooser-file"))
                         }) {
-                            rename_terminal_pane(file_picker_pane.id, "Filepicker");
+                            rename_terminal_pane(file_picker_pane.id, "FilePicker");
                             self.status = PluginStatus::FilePicker(PickerStatus::Picking(
                                 file_picker_pane.into(),
                             ));
@@ -169,6 +195,7 @@ impl PluginState {
                     }
 
                     // cleanup closed panes
+                    // todo: cleanup closed git pane etc
                     let dash_panes_len = self.dash_panes.len();
                     if self.dash_panes.len() > visible_panes.len() {
                         let visible_ids: HashSet<_> =

@@ -15,6 +15,7 @@ zellij-tile-utils = { path = "/home/spc/projects/zellij/zellij/zellij-tile-utils
 uuid = { version = "1.8.0", features = ["v4"] }
 strum_macros = "0.26.2"
 strum = "0.26.2"
+phf = { version = "0.11.2", features = ["macros"] }
 
 
 
