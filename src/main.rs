@@ -49,6 +49,7 @@ struct PluginState {
     columns: usize,
     rows: usize,
     msg_client_id: Uuid,
+    queued_stdin_bytes: Option<Vec<u8>>,
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -71,6 +72,7 @@ impl Default for PluginState {
             columns: 0,
             rows: 0,
             msg_client_id: Uuid::new_v4(),
+            queued_stdin_bytes: None,
         }
     }
 }
@@ -83,12 +85,14 @@ impl ZellijPlugin for PluginState {
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
             PermissionType::RunCommands,
+            PermissionType::WriteToStdin,
         ]);
         subscribe(&[
             EventType::Key,
             EventType::PaneUpdate,
             EventType::TabUpdate,
             EventType::ModeUpdate,
+            EventType::Timer,
         ]);
     }
 
@@ -102,6 +106,11 @@ impl ZellijPlugin for PluginState {
             }
             Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
             Event::PaneUpdate(panes) => self.handle_pane_update(panes),
+            Event::Timer(_) => {
+                if let Some(bytes) = self.queued_stdin_bytes.take() {
+                    zellij_tile::shim::write(bytes);
+                }
+            }
             _ => unimplemented!("{event:?}"),
         }
 

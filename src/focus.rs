@@ -52,4 +52,10 @@ impl PluginState {
             };
         }
     }
+
+    pub(crate) fn focus_editor_pane(&self) {
+        if self.current_focus.id() != self.editor_pane_id {
+            self.editor_pane_id.focus();
+        }
+    }
 }

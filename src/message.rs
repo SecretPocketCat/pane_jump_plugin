@@ -1,6 +1,8 @@
+use std::ptr::write_bytes;
+
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PipeMessage, PipeSource},
-    shim::{open_command_pane_floating, write_chars},
+    shim::{open_command_pane_floating, set_timeout, write, write_chars},
 };
 
 use crate::PluginState;
@@ -26,7 +28,30 @@ impl PluginState {
             match pipe_message.name.parse::<MessageKeybind>() {
                 Ok(MessageKeybind::FilePicker) => self.open_picker(),
                 Ok(MessageKeybind::FocusEditorPane) => self.editor_pane_id.focus(),
-                Ok(MessageKeybind::HxBufferJumplist) => todo!(),
+                Ok(MessageKeybind::HxBufferJumplist) => {
+                    self.focus_editor_pane();
+                    // CSI seq: ESC [
+                    // then key????
+                    // then modifiers
+
+                    zellij_tile::shim::write(vec![27]); // send ESC
+                    set_timeout(0.05);
+                    // todo: handle possible race conditions
+                    // maybe just make it a queue of vecs instead?
+                    self.queued_stdin_bytes = Some(vec![
+                        // https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-ctrl-mapping-of-ascii-keys
+                        2,
+                    ]);
+
+                    // zellij_tile::shim::write(vec![
+                    // legacy CTRL maping - C0 code
+                    // 0x1b, 0x5b, // CSI seq
+                    // 98,   // b
+                    // // 0x3b,  // delimiter? ';'
+                    // 5,    // modifiers - ctrl
+                    // 0x75, // termination 'u'
+                    // ]);
+                }
                 Ok(MessageKeybind::Git) => match self.git_pane_id {
                     Some(id) => id.focus(),
                     None => {
