@@ -147,7 +147,7 @@ impl PluginState {
             match &self.status {
                 crate::PluginStatus::FilePicker(picker_status) => match picker_status {
                     PickerStatus::OpeningPicker => {
-                        if let Some(file_picker_pane) = panes.values().flatten().find(|p| {
+                        if let Some(file_picker_pane) = tab_panes.iter().find(|p| {
                             p.terminal_command
                                 .as_ref()
                                 .is_some_and(|cmd| cmd.contains("yazi --chooser-file"))
@@ -160,7 +160,7 @@ impl PluginState {
                     }
                     PickerStatus::Picking(id) => {
                         if let Some(file_picker_pane) =
-                            panes.values().flatten().find(|p| &PaneId::from(*p) == id)
+                            tab_panes.iter().find(|p| &PaneId::from(*p) == id)
                         {
                             if file_picker_pane.exit_status.is_some() {
                                 id.close();
@@ -168,7 +168,6 @@ impl PluginState {
                             }
                         }
                     }
-                    PickerStatus::Idle => {}
                 },
                 _ => {
                     // todo: maybe exclude floating?

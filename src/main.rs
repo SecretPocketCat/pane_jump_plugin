@@ -16,6 +16,8 @@ mod render;
 mod utils;
 mod wavedash;
 
+const PLUGIN_NAME: &str = "wavedash";
+
 // todo: move some PluginState fields into the variants
 #[derive(Debug, PartialEq)]
 enum PluginStatus {

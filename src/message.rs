@@ -9,7 +9,7 @@ use crate::PluginState;
 
 pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 
-#[derive(strum_macros::EnumString, Debug, PartialEq)]
+#[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
 pub(crate) enum MessageType {
     OpenFile,
 }
@@ -24,6 +24,8 @@ pub(crate) enum MessageKeybind {
 
 impl PluginState {
     pub(crate) fn handle_pipe_message(&mut self, pipe_message: PipeMessage) -> bool {
+        eprintln!("pipe msg: {pipe_message:?}");
+
         if pipe_message.source == PipeSource::Keybind {
             match pipe_message.name.parse::<MessageKeybind>() {
                 Ok(MessageKeybind::FilePicker) => self.open_picker(),
@@ -80,18 +82,25 @@ impl PluginState {
             .get(MSG_CLIENT_ID_ARG)
             .is_some_and(|guid| guid == &self.msg_client_id.to_string())
         {
+            eprintln!("non keybind pipe msg: {pipe_message:?}");
             if let Ok(msg_type) = pipe_message.name.parse::<MessageType>() {
                 match msg_type {
                     MessageType::OpenFile => {
                         if let Some(files) = pipe_message.payload {
-                            for file in files.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-                                write_chars(&format!(":open {file}"));
+                            let lines: Vec<_> = files
+                                .lines()
+                                .map(|l| l.trim())
+                                .filter(|l| !l.is_empty())
+                                .collect();
 
-                                // open_command_pane(CommandToRun {
-                                //     path: "hx".into(),
-                                //     args: vec![file.to_string()],
-                                //     cwd: None,
-                                // });
+                            if !lines.is_empty() {
+                                self.focus_editor_pane();
+
+                                for file in lines {
+                                    write_chars(&format!(":open {file}"));
+                                    // enter
+                                    zellij_tile::shim::write(vec![13]);
+                                }
                             }
                         }
                     }

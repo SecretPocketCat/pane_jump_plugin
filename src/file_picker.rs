@@ -1,9 +1,9 @@
 use zellij_tile::prelude::{CommandToRun, FloatingPaneCoordinates};
 use zellij_tile::shim::open_command_pane_floating;
 
-use crate::message::MSG_CLIENT_ID_ARG;
+use crate::message::{MessageType, MSG_CLIENT_ID_ARG};
 use crate::pane::PaneId;
-use crate::{PluginState, PluginStatus};
+use crate::{PluginState, PluginStatus, PLUGIN_NAME};
 
 // todo: rewrite this to actually write to the editor pane
 // https://zellij.dev/documentation/plugin-api-commands#write_chars
@@ -18,10 +18,8 @@ use crate::{PluginState, PluginStatus};
 
 // this also means hiding editor panes is no longer needed as only 1 pane is required
 
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum PickerStatus {
-    #[default]
-    Idle,
     OpeningPicker,
     Picking(PaneId),
 }
@@ -30,21 +28,24 @@ impl PluginState {
     pub(crate) fn open_picker(&mut self) {
         self.status = PluginStatus::FilePicker(PickerStatus::OpeningPicker);
         open_command_pane_floating(
-                CommandToRun {
-                    path: "bash".into(),
-                    args: vec![
-                        "-c".to_string(),
-                        format!("yazi --chooser-file /dev/stdout | zellij pipe --plugin file_picker --name file --args '{MSG_CLIENT_ID_ARG}={}'", self.msg_client_id),
-                    ],
-                    cwd: None,
-                },
-                Some(
-                    FloatingPaneCoordinates::default()
-                        .with_x_fixed(0)
-                        .with_y_fixed(0)
-                        .with_width_percent(95)
-                        .with_height_percent(90),
-                ),
-            );
+            CommandToRun {
+                path: "bash".into(),
+                args: vec![
+                    "-c".to_string(),
+                    format!(
+                        "yazi --chooser-file /dev/stdout | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
+                        MessageType::OpenFile.as_ref(),
+                        self.msg_client_id),
+                ],
+                cwd: None,
+            },
+            Some(
+                FloatingPaneCoordinates::default()
+                    .with_x_fixed(0)
+                    .with_y_fixed(0)
+                    .with_width_percent(95)
+                    .with_height_percent(90),
+            ),
+        );
     }
 }
