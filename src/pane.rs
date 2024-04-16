@@ -110,8 +110,8 @@ impl PluginState {
             FloatingPaneCoordinates::default()
                 .with_x_fixed(0)
                 .with_y_fixed(0)
-                .with_width_percent(95)
-                .with_height_percent(90),
+                .with_width_percent(100)
+                .with_height_percent(100),
         );
 
         if let Some(cmd) = command {

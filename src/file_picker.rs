@@ -27,7 +27,7 @@ pub(crate) enum PickerStatus {
 impl PluginState {
     pub(crate) fn open_picker(&mut self) {
         self.status = PluginStatus::FilePicker(PickerStatus::OpeningPicker);
-        open_command_pane_floating(
+        Self::open_floating_pane(Some(
             CommandToRun {
                 path: "bash".into(),
                 args: vec![
@@ -39,13 +39,6 @@ impl PluginState {
                 ],
                 cwd: None,
             },
-            Some(
-                FloatingPaneCoordinates::default()
-                    .with_x_fixed(0)
-                    .with_y_fixed(0)
-                    .with_width_percent(95)
-                    .with_height_percent(90),
-            ),
-        );
+        ));
     }
 }
