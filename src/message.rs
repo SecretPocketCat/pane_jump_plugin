@@ -5,7 +5,7 @@ use zellij_tile::{
     shim::{open_command_pane_floating, set_timeout, write, write_chars},
 };
 
-use crate::PluginState;
+use crate::{PluginState, WriteQueueItem};
 
 pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 
@@ -24,8 +24,6 @@ pub(crate) enum MessageKeybind {
 
 impl PluginState {
     pub(crate) fn handle_pipe_message(&mut self, pipe_message: PipeMessage) -> bool {
-        eprintln!("pipe msg: {pipe_message:?}");
-
         if pipe_message.source == PipeSource::Keybind {
             match pipe_message.name.parse::<MessageKeybind>() {
                 Ok(MessageKeybind::FilePicker) => self.open_picker(),
@@ -36,11 +34,11 @@ impl PluginState {
                     // then key????
                     // then modifiers
 
-                    zellij_tile::shim::write(vec![27]); // send ESC
-                    set_timeout(0.05);
+                    self.queue_esc();
+                    self.set_timer();
                     // todo: handle possible race conditions
                     // maybe just make it a queue of vecs instead?
-                    self.queued_stdin_bytes = Some(vec![
+                    self.queue_write_bytes(vec![
                         // https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-ctrl-mapping-of-ascii-keys
                         2,
                     ]);
@@ -82,7 +80,6 @@ impl PluginState {
             .get(MSG_CLIENT_ID_ARG)
             .is_some_and(|guid| guid == &self.msg_client_id.to_string())
         {
-            eprintln!("non keybind pipe msg: {pipe_message:?}");
             if let Ok(msg_type) = pipe_message.name.parse::<MessageType>() {
                 match msg_type {
                     MessageType::OpenFile => {
@@ -95,11 +92,11 @@ impl PluginState {
 
                             if !lines.is_empty() {
                                 self.focus_editor_pane();
+                                self.queue_esc();
 
                                 for file in lines {
-                                    write_chars(&format!(":open {file}"));
-                                    // enter
-                                    zellij_tile::shim::write(vec![13]);
+                                    self.queue_write_string(format!(":open {file}"));
+                                    self.queue_enter();
                                 }
                             }
                         }
@@ -109,5 +106,47 @@ impl PluginState {
         }
 
         false
+    }
+
+    pub(crate) fn queue_write_string(&mut self, val: String) {
+        self.set_timer();
+        self.queued_stdin_bytes
+            .push_back(WriteQueueItem::String(val));
+    }
+
+    pub(crate) fn queue_write_bytes(&mut self, val: Vec<u8>) {
+        self.set_timer();
+        self.queued_stdin_bytes
+            .push_back(WriteQueueItem::Bytes(val));
+    }
+
+    pub(crate) fn queue_esc(&mut self) {
+        self.queue_write_bytes(vec![27]);
+    }
+
+    pub(crate) fn queue_enter(&mut self) {
+        self.queue_write_bytes(vec![13]);
+    }
+
+    pub(crate) fn set_timer(&mut self) {
+        if !self.queue_timer_set {
+            self.queue_timer_set = true;
+            set_timeout(0.05);
+        }
+    }
+
+    pub(crate) fn process_timer(&mut self) {
+        self.queue_timer_set = false;
+
+        if let Some(item) = self.queued_stdin_bytes.pop_front() {
+            match item {
+                WriteQueueItem::String(str) => write_chars(&str),
+                WriteQueueItem::Bytes(bytes) => zellij_tile::shim::write(bytes),
+            }
+        }
+
+        if !self.queued_stdin_bytes.is_empty() {
+            self.set_timer();
+        }
     }
 }

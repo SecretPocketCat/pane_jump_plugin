@@ -16,9 +16,9 @@ impl PluginState {
                 p.is_focused
                     // both a tiled and a floating pane can be focused (but only the top one is relevant here)
                     && p.is_floating == self.floating
-                    && (
-                        // not the current focused pane or `last_focused_editor` has not been set yet
-                        self.current_focus != PaneFocus::from(*p) || self.last_focused_editor.is_none())
+                    && 
+                        // not the current focused pane 
+                        self.current_focus != PaneFocus::from(*p) 
             })
             .cloned()
     }
@@ -29,21 +29,8 @@ impl PluginState {
             focused_pane.into(),
         ));
 
-        if let Some(last_focused_editor) = &self.last_focused_editor {
-            if let Some(current_dash_pane) = self.dash_panes.get(&self.current_focus.id()) {
-                if current_dash_pane.editor && last_focused_editor != &self.current_focus {
-                    last_focused_editor.id().hide();
-                }
-            }
-        }
-
-        if let Some(current_pane) = self.dash_panes.get(&self.current_focus.id()) {
-            if current_pane.editor {
-                self.last_focused_editor = Some(self.current_focus.clone());
-            }
-        }
-
         if !self.status.dashing()
+            && !self.status.filepicking()
             && self.current_focus.floating()
             && self.current_focus.id() == self.dash_pane_id
         {
@@ -54,8 +41,8 @@ impl PluginState {
     }
 
     pub(crate) fn focus_editor_pane(&self) {
-        if self.current_focus.id() != self.editor_pane_id {
-            self.editor_pane_id.focus();
-        }
+        // if self.current_focus.id() != self.editor_pane_id {
+        self.editor_pane_id.focus();
+        // }
     }
 }

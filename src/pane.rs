@@ -152,7 +152,7 @@ impl PluginState {
                                 .as_ref()
                                 .is_some_and(|cmd| cmd.contains("yazi --chooser-file"))
                         }) {
-                            rename_terminal_pane(file_picker_pane.id, "FilePicker");
+                            rename_terminal_pane(file_picker_pane.id, "filepicker");
                             self.status = PluginStatus::FilePicker(PickerStatus::Picking(
                                 file_picker_pane.into(),
                             ));
@@ -189,7 +189,7 @@ impl PluginState {
                         }
 
                         let dash_pane = self.map_pane(pane);
-                        eprintln!("new dash pane: {dash_pane:?}");
+                        // eprintln!("new dash pane: {dash_pane:?}");
                         self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
                     }
 

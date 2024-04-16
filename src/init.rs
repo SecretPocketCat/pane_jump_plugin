@@ -38,10 +38,6 @@ macro_rules! init_plugin_field {
                         self.tab = tab;
                         self.editor_pane_id = editor_pane_id;
                         self.status = PluginStatus::Editor;
-
-                        eprintln!("yay, initialised");
-                    } else {
-                        eprintln!("not ready yet: {:?}", init);
                     }
                 } else {
                     self.$param = $param;

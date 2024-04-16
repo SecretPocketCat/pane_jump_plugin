@@ -1,7 +1,7 @@
 use file_picker::PickerStatus;
 use init::PluginInit;
 use pane::{PaneFocus, PaneId};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use uuid::Uuid;
 use wavedash::DashPane;
 use zellij_tile::prelude::*;
@@ -18,6 +18,11 @@ mod wavedash;
 
 const PLUGIN_NAME: &str = "wavedash";
 
+enum WriteQueueItem {
+    String(String),
+    Bytes(Vec<u8>),
+}
+
 // todo: move some PluginState fields into the variants
 #[derive(Debug, PartialEq)]
 enum PluginStatus {
@@ -31,6 +36,10 @@ impl PluginStatus {
     pub(crate) fn dashing(&self) -> bool {
         matches!(self, Self::Dash { .. })
     }
+
+    pub(crate) fn filepicking(&self) -> bool {
+        matches!(self, Self::FilePicker(..))
+    }
 }
 
 struct PluginState {
@@ -42,7 +51,6 @@ struct PluginState {
     floating: bool,
     current_focus: PaneFocus,
     prev_focus: Option<PaneFocus>,
-    last_focused_editor: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
     dash_panes: HashMap<PaneId, DashPane>,
     last_label_input: Option<String>,
@@ -51,7 +59,8 @@ struct PluginState {
     columns: usize,
     rows: usize,
     msg_client_id: Uuid,
-    queued_stdin_bytes: Option<Vec<u8>>,
+    queued_stdin_bytes: VecDeque<WriteQueueItem>,
+    queue_timer_set: bool,
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -65,7 +74,6 @@ impl Default for PluginState {
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
             prev_focus: None,
-            last_focused_editor: None,
             all_focused_panes: Default::default(),
             dash_panes: Default::default(),
             last_label_input: None,
@@ -74,7 +82,8 @@ impl Default for PluginState {
             columns: 0,
             rows: 0,
             msg_client_id: Uuid::new_v4(),
-            queued_stdin_bytes: None,
+            queued_stdin_bytes: Default::default(),
+            queue_timer_set: false,
         }
     }
 }
@@ -108,11 +117,7 @@ impl ZellijPlugin for PluginState {
             }
             Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
             Event::PaneUpdate(panes) => self.handle_pane_update(panes),
-            Event::Timer(_) => {
-                if let Some(bytes) = self.queued_stdin_bytes.take() {
-                    zellij_tile::shim::write(bytes);
-                }
-            }
+            Event::Timer(_) => self.process_timer(),
             _ => unimplemented!("{event:?}"),
         }
 
