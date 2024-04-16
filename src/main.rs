@@ -1,10 +1,13 @@
 use file_picker::PickerStatus;
 use init::PluginInit;
+use message::KeybindPane;
 use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use uuid::Uuid;
 use wavedash::DashPane;
-use zellij_tile::prelude::*;
+use zellij_tile::{
+    prelude::*, ui_components::plugin_api::plugin_permission::ProtobufPermissionType,
+};
 
 mod file_picker;
 mod focus;
@@ -46,7 +49,6 @@ struct PluginState {
     status: PluginStatus,
     tab: usize,
     editor_pane_id: PaneId,
-    git_pane_id: Option<PaneId>,
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
     current_focus: PaneFocus,
@@ -61,6 +63,7 @@ struct PluginState {
     msg_client_id: Uuid,
     queued_stdin_bytes: VecDeque<WriteQueueItem>,
     queue_timer_set: bool,
+    keybind_panes: HashMap<KeybindPane, PaneId>,
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -70,7 +73,6 @@ impl Default for PluginState {
             status: PluginStatus::Init(Default::default()),
             tab: 0,
             editor_pane_id: PaneId::Terminal(0),
-            git_pane_id: None,
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
             prev_focus: None,
@@ -84,6 +86,7 @@ impl Default for PluginState {
             msg_client_id: Uuid::new_v4(),
             queued_stdin_bytes: Default::default(),
             queue_timer_set: false,
+            keybind_panes: Default::default(),
         }
     }
 }
@@ -95,6 +98,7 @@ impl ZellijPlugin for PluginState {
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
+            PermissionType::OpenTerminalsOrPlugins,
             PermissionType::RunCommands,
             PermissionType::WriteToStdin,
         ]);

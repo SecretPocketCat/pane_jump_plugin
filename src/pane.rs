@@ -1,18 +1,21 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, convert::TryFrom};
 
 use phf::phf_map;
 use zellij_tile::{
-    prelude::{CommandToRun, PaneInfo, PaneManifest, TabInfo},
+    prelude::{CommandToRun, FloatingPaneCoordinates, PaneInfo, PaneManifest, TabInfo},
     shim::{
         close_plugin_pane, close_terminal_pane, focus_plugin_pane, focus_terminal_pane,
-        hide_plugin_pane, hide_terminal_pane, open_command_pane, rename_plugin_pane,
+        get_plugin_ids, hide_plugin_pane, hide_terminal_pane, open_command_pane,
+        open_command_pane_floating, open_terminal_floating, rename_plugin_pane,
         rename_terminal_pane,
     },
 };
 
-use crate::{file_picker::PickerStatus, wavedash::DashPane, PluginState, PluginStatus};
+use crate::{
+    file_picker::PickerStatus, message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus,
+};
 
-const GIT_PANE_NAME: &str = "git";
+pub(crate) const GIT_PANE_NAME: &str = "git";
 
 static RENAME_PANE: phf::Map<&'static str, &'static str> = phf_map! {
     "lazygit" => GIT_PANE_NAME,
@@ -102,6 +105,22 @@ impl From<&PaneInfo> for PaneFocus {
 }
 
 impl PluginState {
+    pub(crate) fn open_floating_pane(command: Option<CommandToRun>) {
+        let coords = Some(
+            FloatingPaneCoordinates::default()
+                .with_x_fixed(0)
+                .with_y_fixed(0)
+                .with_width_percent(95)
+                .with_height_percent(90),
+        );
+
+        if let Some(cmd) = command {
+            open_command_pane_floating(cmd, coords);
+        } else {
+            open_terminal_floating(get_plugin_ids().initial_cwd, coords);
+        }
+    }
+
     pub(crate) fn is_editor_pane(&self, pane: &PaneInfo) -> bool {
         !pane.is_floating
             && pane.is_selectable
@@ -137,10 +156,12 @@ impl PluginState {
                 if let Some(new_name) = RENAME_PANE.get(&p.title) {
                     let id = PaneId::from(p);
                     id.rename(new_name);
+                }
 
-                    if *new_name == GIT_PANE_NAME {
-                        self.git_pane_id = Some(id);
-                    }
+                if let Ok(keybind_pane) = KeybindPane::try_from(p) {
+                    self.keybind_panes
+                        .entry(keybind_pane)
+                        .or_insert_with(|| p.into());
                 }
             }
 

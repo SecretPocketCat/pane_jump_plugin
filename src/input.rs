@@ -2,6 +2,17 @@ use zellij_tile::prelude::Key;
 
 use crate::{file_picker::PickerStatus, PluginState, PluginStatus};
 
+#[derive(strum_macros::EnumString, Debug, PartialEq)]
+pub(crate) enum MessageKeybind {
+    FilePicker,
+    FocusEditorPane,
+    HxBufferJumplist,
+    Git,
+    Terminal,
+    NewTerminal,
+    K9s,
+}
+
 impl PluginState {
     pub(crate) fn handle_key(&mut self, key: Key) {
         match &self.status {
