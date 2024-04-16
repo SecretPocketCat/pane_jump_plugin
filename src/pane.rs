@@ -1,4 +1,4 @@
-use std::{collections::HashSet, convert::TryFrom};
+use std::{collections::HashSet, convert::TryFrom, path::Path};
 
 use phf::phf_map;
 use zellij_tile::{
@@ -6,7 +6,7 @@ use zellij_tile::{
     shim::{
         close_plugin_pane, close_terminal_pane, focus_plugin_pane, focus_terminal_pane,
         get_plugin_ids, hide_plugin_pane, hide_terminal_pane, open_command_pane,
-        open_command_pane_floating, open_terminal_floating, rename_plugin_pane,
+        open_command_pane_floating, open_terminal, open_terminal_floating, rename_plugin_pane,
         rename_terminal_pane,
     },
 };

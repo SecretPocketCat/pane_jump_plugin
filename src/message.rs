@@ -1,11 +1,7 @@
 use std::convert::{TryFrom, TryInto};
-
 use zellij_tile::{
-    prelude::{CommandToRun, FloatingPaneCoordinates, PaneInfo, PipeMessage, PipeSource},
-    shim::{
-        get_plugin_ids, open_command_pane_floating, open_terminal_floating, set_timeout,
-        write_chars,
-    },
+    prelude::{CommandToRun, PaneInfo, PipeMessage, PipeSource},
+    shim::{set_timeout, write_chars},
 };
 
 use crate::{input::MessageKeybind, pane::GIT_PANE_NAME, PluginState, WriteQueueItem};
@@ -77,7 +73,7 @@ impl PluginState {
                             ]);
                         }
                         MessageKeybind::NewTerminal => {
-                            // todo
+                            Self::open_floating_pane(None);
                         }
                         MessageKeybind::Terminal | MessageKeybind::Git | MessageKeybind::K9s => {
                             let keybind_pane: KeybindPane = keybind.try_into().unwrap();
