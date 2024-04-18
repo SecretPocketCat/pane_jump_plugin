@@ -25,7 +25,7 @@ pub(crate) enum MessageType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum KeybindPane {
-    WaveDash,
+    StatusPaneDash,
     FilePicker,
     Git,
     Terminal,
@@ -37,7 +37,7 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 
     fn try_from(value: MessageKeybind) -> Result<Self, Self::Error> {
         match value {
-            MessageKeybind::Wavedash => Ok(KeybindPane::WaveDash),
+            MessageKeybind::Wavedash => Ok(KeybindPane::StatusPaneDash),
             MessageKeybind::FilePicker => Ok(KeybindPane::FilePicker),
             MessageKeybind::Git => Ok(KeybindPane::Git),
             MessageKeybind::Terminal => Ok(KeybindPane::Terminal),
@@ -51,7 +51,7 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 
 lazy_static! {
     static ref KEYBIND_PANE_MAP: HashMap<&'static str, KeybindPane> = HashMap::from([
-        (DASH_PANE_NAME, KeybindPane::WaveDash),
+        (DASH_PANE_NAME, KeybindPane::StatusPaneDash),
         (FILEPICKER_PANE_NAME, KeybindPane::FilePicker),
         (GIT_PANE_NAME, KeybindPane::Git),
         ("k9s", KeybindPane::K9s),
@@ -102,7 +102,7 @@ impl PluginState {
                             }
 
                             if let Some(new_status) = match keybind_pane {
-                                KeybindPane::WaveDash => Some(PluginStatus::Dash {
+                                KeybindPane::StatusPaneDash => Some(PluginStatus::Dash {
                                     input: String::default(),
                                 }),
                                 KeybindPane::FilePicker => Some(PluginStatus::FilePicker),
@@ -169,7 +169,7 @@ impl PluginState {
             KeybindPane::Git => Some(CommandToRun::new("lazygit")),
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
-            KeybindPane::WaveDash => {
+            KeybindPane::StatusPaneDash => {
                 let opts = self.dash_panes.iter().map(|p| &p.title).join("\n");
                 let cmd = format!(
                     "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",

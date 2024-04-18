@@ -1,6 +1,6 @@
 use zellij_tile::prelude::PaneInfo;
 
-use crate::{pane::PaneFocus, PluginState}; 
+use crate::{message::KeybindPane, pane::PaneFocus, PluginState}; 
 
 impl PluginState {
     pub(crate) fn check_focus_change(&mut self) {
@@ -28,6 +28,13 @@ impl PluginState {
             &mut self.current_focus,
             focused_pane.into(),
         ));
+
+        if let Some(id) = self.keybind_panes.get(&KeybindPane::StatusPaneDash) {
+            if id != &self.current_focus.id() {
+                id.close();
+                self.keybind_panes.remove(&KeybindPane::StatusPaneDash);
+            }
+        }
     }
 
     pub(crate) fn focus_editor_pane(&self) {
