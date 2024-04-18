@@ -1,11 +1,13 @@
+use command_queue::CommandQueue;
 use init::PluginInit;
 use message::KeybindPane;
 use pane::{PaneFocus, PaneId};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 use wavedash::DashPane;
 use zellij_tile::prelude::*;
 
+mod command_queue;
 mod focus;
 mod init;
 mod input;
@@ -16,11 +18,6 @@ mod utils;
 mod wavedash;
 
 const PLUGIN_NAME: &str = "wavedash";
-
-enum WriteQueueItem {
-    String(String),
-    Bytes(Vec<u8>),
-}
 
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
@@ -47,8 +44,7 @@ struct PluginState {
     columns: usize,
     rows: usize,
     msg_client_id: Uuid,
-    queued_stdin_bytes: VecDeque<WriteQueueItem>,
-    queue_timer_set: bool,
+    command_queue: CommandQueue,
     keybind_panes: HashMap<KeybindPane, PaneId>,
 }
 
@@ -70,8 +66,7 @@ impl Default for PluginState {
             columns: 0,
             rows: 0,
             msg_client_id: Uuid::new_v4(),
-            queued_stdin_bytes: Default::default(),
-            queue_timer_set: false,
+            command_queue: Default::default(),
             keybind_panes: Default::default(),
         }
     }
