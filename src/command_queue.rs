@@ -8,6 +8,7 @@ pub(crate) enum QueuedCommand {
     WriteString(String),
     WriteBytes(Vec<u8>),
     FocusEditor,
+    // RenamePane,
 }
 
 #[derive(Default)]

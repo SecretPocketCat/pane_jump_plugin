@@ -1,12 +1,20 @@
 use itertools::Itertools;
-use std::convert::{TryFrom, TryInto};
+use lazy_static::lazy_static;
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+};
 use zellij_tile::prelude::{CommandToRun, PaneInfo, PipeMessage, PipeSource};
 
 use crate::{
-    command_queue::QueuedCommand, input::MessageKeybind, pane::GIT_PANE_NAME, PluginState,
-    PLUGIN_NAME,
+    command_queue::QueuedCommand,
+    input::MessageKeybind,
+    pane::{DASH_PANE_NAME, FILEPICKER_PANE_NAME, GIT_PANE_NAME},
+    wavedash, PluginState, PluginStatus, PLUGIN_NAME,
 };
 
+pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
+pub(crate) const DASH_CMD: &str = "fzf --layout reverse --with-nth 2..";
 pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
@@ -41,19 +49,23 @@ impl TryFrom<MessageKeybind> for KeybindPane {
     }
 }
 
+lazy_static! {
+    static ref KEYBIND_PANE_MAP: HashMap<&'static str, KeybindPane> = HashMap::from([
+        (DASH_PANE_NAME, KeybindPane::WaveDash),
+        (FILEPICKER_PANE_NAME, KeybindPane::FilePicker),
+        (GIT_PANE_NAME, KeybindPane::Git),
+        ("k9s", KeybindPane::K9s),
+    ]);
+}
+
 impl TryFrom<&PaneInfo> for KeybindPane {
     type Error = ();
 
     fn try_from(value: &PaneInfo) -> Result<Self, Self::Error> {
-        if value.title.contains("| fzf") {
-            return Ok(KeybindPane::WaveDash);
-        }
-
-        match value.title.as_str() {
-            GIT_PANE_NAME => Ok(KeybindPane::Git),
-            "k9s" => Ok(KeybindPane::K9s),
-            _ => Err(()),
-        }
+        KEYBIND_PANE_MAP
+            .get(value.title.as_str())
+            .cloned()
+            .ok_or(())
     }
 }
 
@@ -74,6 +86,8 @@ impl PluginState {
                         }
                         MessageKeybind::NewTerminal => {
                             Self::open_floating_pane(None);
+                            // todo
+                            // self.command_queue.queue_command(QueuedCommand::RenamePane);
                         }
                         MessageKeybind::Wavedash
                         | MessageKeybind::FilePicker
@@ -85,6 +99,16 @@ impl PluginState {
                                 pane_id.focus();
                             } else {
                                 Self::open_floating_pane(self.spawn_pane_command(&keybind_pane));
+                            }
+
+                            if let Some(new_status) = match keybind_pane {
+                                KeybindPane::WaveDash => Some(PluginStatus::Dash {
+                                    input: String::default(),
+                                }),
+                                KeybindPane::FilePicker => Some(PluginStatus::FilePicker),
+                                _ => None,
+                            } {
+                                self.status = new_status;
                             }
                         }
                     }
@@ -148,7 +172,7 @@ impl PluginState {
             KeybindPane::WaveDash => {
                 let opts = self.dash_panes.iter().map(|p| &p.title).join("\n");
                 let cmd = format!(
-                    "printf '{opts}' | command cat -n | fzf --layout reverse --with-nth 2.. | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
+                    "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
                     MessageType::FocusPane.as_ref(),
                     self.msg_client_id
                 );
@@ -161,7 +185,7 @@ impl PluginState {
             }
             KeybindPane::FilePicker => {
                 let cmd = format!(
-                    "yazi --chooser-file /dev/stdout | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
+                    "{YAZI_CMD} | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
                     MessageType::OpenFile.as_ref(),
                     self.msg_client_id
                 );

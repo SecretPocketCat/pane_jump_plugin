@@ -20,7 +20,6 @@ mod wavedash;
 const PLUGIN_NAME: &str = "wavedash";
 
 #[derive(Debug, PartialEq)]
-#[allow(dead_code)]
 enum PluginStatus {
     Init(PluginInit),
     Editor,

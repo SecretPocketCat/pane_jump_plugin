@@ -9,13 +9,21 @@ use zellij_tile::{
     },
 };
 
-use crate::{message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
+use crate::{
+    message::{KeybindPane, DASH_CMD, YAZI_CMD},
+    wavedash::DashPane,
+    PluginState, PluginStatus,
+};
 
+pub(crate) const DASH_PANE_NAME: &str = "dash";
+pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
 pub(crate) const GIT_PANE_NAME: &str = "git";
 
 static RENAME_PANE: phf::Map<&'static str, &'static str> = phf_map! {
     "lazygit" => GIT_PANE_NAME,
 };
+const RENAME_PANE_CONTAINS: [(&str, &str); 2] =
+    [(DASH_CMD, DASH_PANE_NAME), (YAZI_CMD, FILEPICKER_PANE_NAME)];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PaneId {
@@ -127,9 +135,12 @@ impl PluginState {
     }
 
     fn map_pane_name(&self, pane: &PaneInfo) -> Option<&str> {
-        if pane.title.contains("| fzf") {
-            Some("wavedash")
-        } else if let Some(name) = RENAME_PANE.get(&pane.title) {
+        if let Some(name) = RENAME_PANE.get(&pane.title) {
+            Some(name)
+        } else if let Some((_, name)) = RENAME_PANE_CONTAINS
+            .iter()
+            .find(|(needle, _)| pane.title.contains(needle))
+        {
             Some(name)
         } else {
             None
@@ -151,25 +162,21 @@ impl PluginState {
             return;
         }
 
-        // todo: need to handle his somewhere
-        // same thing goes for FilePicker
-        // self.status = PluginStatus::Dash {
-        //     input: String::default(),
-        // };
-        // todo:
-        // self.status = PluginStatus::FilePicker(PickerStatus::OpeningPicker);
-
         if let Some(tab_panes) = panes.get(&self.tab) {
             for p in tab_panes {
+                let id = PaneId::from(p);
+
                 if let Some(new_name) = self.map_pane_name(p) {
-                    let id = PaneId::from(p);
                     id.rename(new_name);
                 }
 
                 if let Ok(keybind_pane) = KeybindPane::try_from(p) {
-                    self.keybind_panes
-                        .entry(keybind_pane)
-                        .or_insert_with(|| p.into());
+                    if p.terminal_command.is_some() && p.exit_status.is_some() {
+                        id.close();
+                        self.keybind_panes.remove(&keybind_pane);
+                    } else {
+                        self.keybind_panes.entry(keybind_pane).or_insert(id);
+                    }
                 }
             }
 
