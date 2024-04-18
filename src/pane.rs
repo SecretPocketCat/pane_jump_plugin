@@ -1,19 +1,15 @@
-use std::{collections::HashSet, convert::TryFrom, path::Path};
-
 use phf::phf_map;
+use std::{collections::HashSet, convert::TryFrom};
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneInfo, PaneManifest, TabInfo},
     shim::{
         close_plugin_pane, close_terminal_pane, focus_plugin_pane, focus_terminal_pane,
-        get_plugin_ids, hide_plugin_pane, hide_terminal_pane, open_command_pane,
-        open_command_pane_floating, open_terminal, open_terminal_floating, rename_plugin_pane,
-        rename_terminal_pane,
+        get_plugin_ids, hide_plugin_pane, hide_terminal_pane, open_command_pane_floating,
+        open_terminal_floating, rename_plugin_pane, rename_terminal_pane,
     },
 };
 
-use crate::{
-    file_picker::PickerStatus, message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus,
-};
+use crate::{message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
 
 pub(crate) const GIT_PANE_NAME: &str = "git";
 
@@ -43,6 +39,7 @@ impl PaneId {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn hide(&self) {
         match self {
             PaneId::Terminal(id) => hide_terminal_pane(*id),
@@ -93,6 +90,7 @@ impl PaneFocus {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn floating(&self) -> bool {
         matches!(self, PaneFocus::Floating(_))
     }
@@ -121,18 +119,20 @@ impl PluginState {
         }
     }
 
-    pub(crate) fn is_editor_pane(&self, pane: &PaneInfo) -> bool {
-        !pane.is_floating
-            && pane.is_selectable
-            && (pane.pane_x == 0 && pane.pane_columns > (self.columns / 2)
-                || pane.pane_y <= 2 && pane.pane_rows > (self.rows / 2))
-    }
-
-    pub(crate) fn map_pane(&self, pane: &PaneInfo) -> DashPane {
+    pub(crate) fn map_dash_pane(&self, pane: &PaneInfo) -> DashPane {
         DashPane {
             id: pane.into(),
             title: pane.title.clone(),
-            editor: self.is_editor_pane(pane),
+        }
+    }
+
+    fn map_pane_name(&self, pane: &PaneInfo) -> Option<&str> {
+        if pane.title.contains("| fzf") {
+            Some("wavedash")
+        } else if let Some(name) = RENAME_PANE.get(&pane.title) {
+            Some(name)
+        } else {
+            None
         }
     }
 
@@ -151,9 +151,17 @@ impl PluginState {
             return;
         }
 
+        // todo: need to handle his somewhere
+        // same thing goes for FilePicker
+        // self.status = PluginStatus::Dash {
+        //     input: String::default(),
+        // };
+        // todo:
+        // self.status = PluginStatus::FilePicker(PickerStatus::OpeningPicker);
+
         if let Some(tab_panes) = panes.get(&self.tab) {
             for p in tab_panes {
-                if let Some(new_name) = RENAME_PANE.get(&p.title) {
+                if let Some(new_name) = self.map_pane_name(p) {
                     let id = PaneId::from(p);
                     id.rename(new_name);
                 }
@@ -166,20 +174,8 @@ impl PluginState {
             }
 
             match &self.status {
-                crate::PluginStatus::FilePicker(picker_status) => match picker_status {
-                    PickerStatus::OpeningPicker => {
-                        if let Some(file_picker_pane) = tab_panes.iter().find(|p| {
-                            p.terminal_command
-                                .as_ref()
-                                .is_some_and(|cmd| cmd.contains("yazi --chooser-file"))
-                        }) {
-                            rename_terminal_pane(file_picker_pane.id, "filepicker");
-                            self.status = PluginStatus::FilePicker(PickerStatus::Picking(
-                                file_picker_pane.into(),
-                            ));
-                        }
-                    }
-                    PickerStatus::Picking(id) => {
+                crate::PluginStatus::FilePicker => {
+                    if let Some(id) = self.keybind_panes.get(&KeybindPane::FilePicker) {
                         if let Some(file_picker_pane) =
                             tab_panes.iter().find(|p| &PaneId::from(*p) == id)
                         {
@@ -189,9 +185,8 @@ impl PluginState {
                             }
                         }
                     }
-                },
+                }
                 _ => {
-                    // todo: maybe exclude floating?
                     let visible_panes: Vec<_> = tab_panes
                         .iter()
                         .filter(|p| {
@@ -202,45 +197,24 @@ impl PluginState {
                         .collect();
 
                     let dash_pane_ids: HashSet<_> =
-                        self.dash_panes.values().map(|p| p.id.clone()).collect();
+                        self.dash_panes.iter().map(|p| p.id.clone()).collect();
 
                     for pane in &visible_panes {
                         if dash_pane_ids.contains(&PaneId::from(*pane)) {
                             continue;
                         }
 
-                        let dash_pane = self.map_pane(pane);
+                        let dash_pane = self.map_dash_pane(pane);
                         // eprintln!("new dash pane: {dash_pane:?}");
-                        self.dash_panes.insert(dash_pane.id.clone(), dash_pane);
+                        self.dash_panes.push(dash_pane);
                     }
 
                     // cleanup closed panes
                     // todo: cleanup closed git pane etc
-                    let dash_panes_len = self.dash_panes.len();
                     if self.dash_panes.len() > visible_panes.len() {
                         let visible_ids: HashSet<_> =
                             visible_panes.iter().map(|p| PaneId::from(*p)).collect();
-                        self.dash_panes.retain(|_, p| visible_ids.contains(&p.id));
-                    }
-
-                    let new_dash_panes_len = self.dash_panes.len();
-                    if new_dash_panes_len < dash_panes_len && new_dash_panes_len > 0 {
-                        if !self.dash_panes.contains_key(&self.current_focus.id()) {
-                            // focus editor pane if the focused pane was closed
-                            if let Some(editor_pane) =
-                                self.dash_panes.values().filter(|p| p.editor).next()
-                            {
-                                editor_pane.id.focus();
-                            }
-                        }
-                    } else if self.dash_panes.values().filter(|p| p.editor).count() == 0 {
-                        // open a new editor pane if all editor panes were closed
-                        eprintln!("No more editors");
-                        open_command_pane(CommandToRun {
-                            path: "hx".into(),
-                            args: vec![".".to_string()],
-                            cwd: None,
-                        })
+                        self.dash_panes.retain(|p| visible_ids.contains(&p.id));
                     }
 
                     // collect all focused panes

@@ -1,10 +1,7 @@
-use crate::{pane::PaneId, PluginState};
+use crate::pane::PaneId;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DashPane {
     pub(crate) title: String,
     pub(crate) id: PaneId,
-    pub(crate) editor: bool,
 }
-
-impl PluginState {}

@@ -1,15 +1,11 @@
-use file_picker::PickerStatus;
 use init::PluginInit;
 use message::KeybindPane;
 use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use uuid::Uuid;
 use wavedash::DashPane;
-use zellij_tile::{
-    prelude::*, ui_components::plugin_api::plugin_permission::ProtobufPermissionType,
-};
+use zellij_tile::prelude::*;
 
-mod file_picker;
 mod focus;
 mod init;
 mod input;
@@ -26,23 +22,13 @@ enum WriteQueueItem {
     Bytes(Vec<u8>),
 }
 
-// todo: move some PluginState fields into the variants
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 enum PluginStatus {
     Init(PluginInit),
     Editor,
-    FilePicker(PickerStatus),
+    FilePicker,
     Dash { input: String },
-}
-
-impl PluginStatus {
-    pub(crate) fn dashing(&self) -> bool {
-        matches!(self, Self::Dash { .. })
-    }
-
-    pub(crate) fn filepicking(&self) -> bool {
-        matches!(self, Self::FilePicker(..))
-    }
 }
 
 struct PluginState {
@@ -54,7 +40,7 @@ struct PluginState {
     current_focus: PaneFocus,
     prev_focus: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
-    dash_panes: HashMap<PaneId, DashPane>,
+    dash_panes: Vec<DashPane>,
     last_label_input: Option<String>,
     dash_pane_id: PaneId,
     palette: Palette,

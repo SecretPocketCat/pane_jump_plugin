@@ -1,6 +1,6 @@
 use zellij_tile::prelude::PaneInfo;
 
-use crate::{pane::PaneFocus, PluginState, PluginStatus};
+use crate::{pane::PaneFocus, PluginState}; 
 
 impl PluginState {
     pub(crate) fn check_focus_change(&mut self) {
@@ -18,7 +18,7 @@ impl PluginState {
                     && p.is_floating == self.floating
                     && 
                         // not the current focused pane 
-                        self.current_focus != PaneFocus::from(*p) 
+                        self.current_focus != PaneFocus::from(*p)
             })
             .cloned()
     }
@@ -28,21 +28,9 @@ impl PluginState {
             &mut self.current_focus,
             focused_pane.into(),
         ));
-
-        if !self.status.dashing()
-            && !self.status.filepicking()
-            && self.current_focus.floating()
-            && self.current_focus.id() == self.dash_pane_id
-        {
-            self.status = PluginStatus::Dash {
-                input: String::default(),
-            };
-        }
     }
 
     pub(crate) fn focus_editor_pane(&self) {
-        // if self.current_focus.id() != self.editor_pane_id {
         self.editor_pane_id.focus();
-        // }
     }
 }

@@ -1,9 +1,10 @@
 use zellij_tile::prelude::Key;
 
-use crate::{file_picker::PickerStatus, PluginState, PluginStatus};
+use crate::{PluginState, PluginStatus};
 
 #[derive(strum_macros::EnumString, Debug, PartialEq)]
 pub(crate) enum MessageKeybind {
+    Wavedash,
     FilePicker,
     FocusEditorPane,
     HxBufferJumplist,
@@ -16,16 +17,19 @@ pub(crate) enum MessageKeybind {
 impl PluginState {
     pub(crate) fn handle_key(&mut self, key: Key) {
         match &self.status {
-            PluginStatus::FilePicker(status) => self.handle_filepicker_key(key, status.clone()),
+            PluginStatus::FilePicker => self.handle_filepicker_key(key),
             PluginStatus::Editor => self.handle_dash_key(key),
             _ => {}
         }
     }
 
-    fn handle_filepicker_key(&mut self, key: Key, picker_status: PickerStatus) {
+    fn handle_filepicker_key(&mut self, key: Key) {
         match key {
             Key::Esc => {
-                if let PickerStatus::Picking(id) = picker_status {
+                if let Some(id) = self
+                    .keybind_panes
+                    .get(&crate::message::KeybindPane::FilePicker)
+                {
                     id.close();
                     self.status = PluginStatus::Editor;
                 }
