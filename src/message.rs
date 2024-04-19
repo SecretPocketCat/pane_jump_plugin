@@ -93,7 +93,6 @@ impl PluginState {
                         | MessageKeybind::Terminal
                         | MessageKeybind::Git
                         | MessageKeybind::K9s => {
-                            // todo: might need a fix
                             let keybind_pane: KeybindPane = keybind.try_into().unwrap();
                             if let Some(pane_id) = self.keybind_panes.get(&keybind_pane) {
                                 eprintln!(
@@ -116,9 +115,6 @@ impl PluginState {
                             }
 
                             if let Some(new_status) = match keybind_pane {
-                                KeybindPane::StatusPaneDash => Some(PluginStatus::Dash {
-                                    input: String::default(),
-                                }),
                                 KeybindPane::FilePicker => Some(PluginStatus::FilePicker),
                                 _ => None,
                             } {

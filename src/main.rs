@@ -13,8 +13,6 @@ mod init;
 mod input;
 mod message;
 mod pane;
-mod render;
-mod utils;
 mod wavedash;
 
 const PLUGIN_NAME: &str = "wavedash";
@@ -24,7 +22,6 @@ enum PluginStatus {
     Init(PluginInit),
     Editor,
     FilePicker,
-    Dash { input: String },
 }
 
 struct PluginState {
@@ -40,8 +37,6 @@ struct PluginState {
     last_label_input: Option<String>,
     dash_pane_id: PaneId,
     palette: Palette,
-    columns: usize,
-    rows: usize,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
     keybind_panes: HashMap<KeybindPane, PaneId>,
@@ -63,8 +58,6 @@ impl Default for PluginState {
             last_label_input: None,
             dash_pane_id: PaneId::Plugin(0),
             palette: Default::default(),
-            columns: 0,
-            rows: 0,
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),
             keybind_panes: Default::default(),
@@ -77,6 +70,7 @@ register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
     fn load(&mut self, _configuration: BTreeMap<String, String>) {
         self.dash_pane_id = PaneId::new(get_plugin_ids().plugin_id, true);
+        show_self(true);
         request_permission(&[
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
@@ -107,11 +101,7 @@ impl ZellijPlugin for PluginState {
             _ => unimplemented!("{event:?}"),
         }
 
-        self.should_render()
-    }
-
-    fn render(&mut self, rows: usize, cols: usize) {
-        self.render_pane(rows, cols);
+        false
     }
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {

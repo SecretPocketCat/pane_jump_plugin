@@ -1,12 +1,13 @@
 use std::collections::HashMap;
-use zellij_tile::prelude::{Palette, PaneInfo};
+use zellij_tile::{
+    prelude::{Palette, PaneInfo},
+    shim::hide_self,
+};
 
 use crate::{pane::PaneId, PluginState, PluginStatus};
 
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct PluginInit {
-    columns: Option<usize>,
-    rows: Option<usize>,
     palette: Option<Palette>,
     tab: Option<usize>,
     editor_pane_id: Option<PaneId>,
@@ -19,25 +20,14 @@ macro_rules! init_plugin_field {
                 if let PluginStatus::Init(init) = &mut self.status {
                     init.$param = Some($param);
 
-                    if let (
-                        Some(columns),
-                        Some(rows),
-                        Some(palette),
-                        Some(tab),
-                        Some(editor_pane_id),
-                    ) = (
-                        init.columns,
-                        init.rows,
-                        init.palette,
-                        init.tab,
-                        init.editor_pane_id,
-                    ) {
-                        self.columns = columns;
-                        self.rows = rows;
+                    if let (Some(palette), Some(tab), Some(editor_pane_id)) =
+                        (init.palette, init.tab, init.editor_pane_id)
+                    {
                         self.palette = palette;
                         self.tab = tab;
                         self.editor_pane_id = editor_pane_id;
                         self.status = PluginStatus::Editor;
+                        hide_self();
                     }
                 } else {
                     self.$param = $param;
@@ -48,8 +38,6 @@ macro_rules! init_plugin_field {
     };
 }
 
-init_plugin_field!(rows, usize, set_rows);
-init_plugin_field!(columns, usize, set_columns);
 init_plugin_field!(palette, Palette, set_palette);
 init_plugin_field!(tab, usize, set_tab);
 init_plugin_field!(editor_pane_id, PaneId, set_editor_pane_id);
@@ -57,11 +45,7 @@ init_plugin_field!(editor_pane_id, PaneId, set_editor_pane_id);
 impl PluginState {
     pub(crate) fn initialised(&self) -> bool {
         if let PluginStatus::Init(init) = &self.status {
-            init.columns.is_some()
-                && init.rows.is_some()
-                && init.palette.is_some()
-                && init.tab.is_some()
-                && init.editor_pane_id.is_some()
+            init.palette.is_some() && init.tab.is_some() && init.editor_pane_id.is_some()
         } else {
             true
         }
