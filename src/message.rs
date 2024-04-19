@@ -7,7 +7,8 @@ pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
 pub(crate) enum MessageType {
     OpenFile,
-    FocusPane,
+    FocusStatusPane,
+    FocusTerminalPane,
 }
 
 impl PluginState {
@@ -40,14 +41,19 @@ impl PluginState {
                                 }
                             }
                         }
-                        MessageType::FocusPane => {
-                            if let Some(idx) =
-                                payload.lines().next().and_then(|l| l.parse::<usize>().ok())
-                            {
+                        MessageType::FocusStatusPane => {
+                            if let Some(idx) = Self::parse_pane_index(&payload) {
                                 if let Some((id, _)) = self.status_panes.get_index(idx - 1) {
                                     id.focus();
                                     self.command_queue
                                         .queue_timer_command(QueuedTimerCommand::FocusEditor);
+                                }
+                            }
+                        }
+                        MessageType::FocusTerminalPane => {
+                            if let Some(idx) = Self::parse_pane_index(&payload) {
+                                if let Some((id, _)) = self.terminal_panes.get_index(idx - 1) {
+                                    id.focus();
                                 }
                             }
                         }
@@ -57,5 +63,9 @@ impl PluginState {
         }
 
         false
+    }
+
+    fn parse_pane_index(payload: &str) -> Option<usize> {
+        payload.lines().next().and_then(|l| l.parse::<usize>().ok())
     }
 }

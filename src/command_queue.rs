@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-
 use zellij_tile::shim::{set_timeout, write_chars};
 
 use crate::{input::KeybindPane, pane::PaneFocus, PluginState};
@@ -13,6 +12,7 @@ pub(crate) enum QueuedTimerCommand {
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum QueuedFocusCommand {
     RenamePane(String),
+    // ShowRenameInput,
     MarkKeybindPane(KeybindPane),
     MarkTerminalPane(String),
 }

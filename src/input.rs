@@ -131,12 +131,14 @@ impl PluginState {
             KeybindPane::Git => Some(CommandToRun::new("lazygit")),
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
-            KeybindPane::StatusPaneDash => {
-                Some(self.get_fzf_focus_pane_cmd(self.status_panes.values().map(String::as_str)))
-            }
-            KeybindPane::TerminalPaneDash => {
-                Some(self.get_fzf_focus_pane_cmd(self.terminal_panes.values().map(String::as_str)))
-            }
+            KeybindPane::StatusPaneDash => Some(self.get_fzf_focus_pane_cmd(
+                self.status_panes.values().map(String::as_str),
+                MessageType::FocusStatusPane,
+            )),
+            KeybindPane::TerminalPaneDash => Some(self.get_fzf_focus_pane_cmd(
+                self.terminal_panes.values().map(String::as_str),
+                MessageType::FocusTerminalPane,
+            )),
             KeybindPane::FilePicker => {
                 let cmd = format!(
                     "{YAZI_CMD} | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
@@ -152,11 +154,15 @@ impl PluginState {
         }
     }
 
-    fn get_fzf_focus_pane_cmd<'a>(&self, options: impl Iterator<Item = &'a str>) -> CommandToRun {
+    fn get_fzf_focus_pane_cmd<'a>(
+        &self,
+        options: impl Iterator<Item = &'a str>,
+        message_type: MessageType,
+    ) -> CommandToRun {
         let opts = options.into_iter().join("\n");
         let cmd = format!(
                     "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
-                    MessageType::FocusPane.as_ref(),
+                    message_type.as_ref(),
                     self.msg_client_id
                 );
         CommandToRun {
