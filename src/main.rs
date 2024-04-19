@@ -17,15 +17,8 @@ mod wavedash;
 
 const PLUGIN_NAME: &str = "wavedash";
 
-#[derive(Debug, PartialEq)]
-enum PluginStatus {
-    Init(PluginInit),
-    Editor,
-    FilePicker,
-}
-
 struct PluginState {
-    status: PluginStatus,
+    init: Option<PluginInit>,
     tab: usize,
     editor_pane_id: PaneId,
     // not part of focus fields because it's part of `TabUpdate`
@@ -46,7 +39,7 @@ struct PluginState {
 impl Default for PluginState {
     fn default() -> Self {
         Self {
-            status: PluginStatus::Init(Default::default()),
+            init: Some(PluginInit::default()),
             tab: 0,
             editor_pane_id: PaneId::Terminal(0),
             floating: true,

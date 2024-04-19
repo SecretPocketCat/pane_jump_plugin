@@ -2,7 +2,7 @@ use crate::{
     command_queue::QueuedFocusCommand,
     message::{MessageType, MSG_CLIENT_ID_ARG},
     pane::{DASH_PANE_NAME, FILEPICKER_PANE_NAME, GIT_PANE_NAME},
-    PluginState, PluginStatus, PLUGIN_NAME,
+    PluginState, PLUGIN_NAME,
 };
 
 use itertools::Itertools;
@@ -116,13 +116,6 @@ impl PluginState {
                                 .queue_focus_command(QueuedFocusCommand::RenamePane(
                                     keybind_pane.pane_name().to_string(),
                                 ));
-                        }
-
-                        if let Some(new_status) = match keybind_pane {
-                            KeybindPane::FilePicker => Some(PluginStatus::FilePicker),
-                            _ => None,
-                        } {
-                            self.status = new_status;
                         }
                     }
                 }

@@ -8,7 +8,7 @@ use zellij_tile::{
     },
 };
 
-use crate::{input::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
+use crate::{wavedash::DashPane, PluginState};
 
 pub(crate) const DASH_PANE_NAME: &str = "dash";
 pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
@@ -145,9 +145,7 @@ impl PluginState {
             self.check_focus_change();
 
             for p in tab_panes {
-                if
-                /*p.terminal_command.is_some() &&*/
-                p.exit_status.is_some() {
+                if p.terminal_command.is_some() && p.exit_status.is_some() {
                     let id = PaneId::from(p);
 
                     if let Some((keybind_pane, id)) = self
@@ -163,49 +161,33 @@ impl PluginState {
                 }
             }
 
-            match &self.status {
-                crate::PluginStatus::FilePicker => {
-                    if let Some(id) = self.keybind_panes.get(&KeybindPane::FilePicker) {
-                        if let Some(file_picker_pane) =
-                            tab_panes.iter().find(|p| &PaneId::from(*p) == id)
-                        {
-                            if file_picker_pane.exit_status.is_some() {
-                                id.close();
-                                self.status = PluginStatus::Editor;
-                            }
-                        }
-                    }
+            let visible_panes: Vec<_> = tab_panes
+                .iter()
+                .filter(|p| {
+                    p.is_selectable
+                        && PaneId::from(*p) != self.dash_pane_id
+                        && !p.title.ends_with("-bar")
+                })
+                .collect();
+
+            let dash_pane_ids: HashSet<_> = self.dash_panes.iter().map(|p| p.id).collect();
+
+            for pane in &visible_panes {
+                if dash_pane_ids.contains(&PaneId::from(*pane)) {
+                    continue;
                 }
-                _ => {
-                    let visible_panes: Vec<_> = tab_panes
-                        .iter()
-                        .filter(|p| {
-                            p.is_selectable
-                                && PaneId::from(*p) != self.dash_pane_id
-                                && !p.title.ends_with("-bar")
-                        })
-                        .collect();
 
-                    let dash_pane_ids: HashSet<_> = self.dash_panes.iter().map(|p| p.id).collect();
+                let dash_pane = self.map_dash_pane(pane);
+                // eprintln!("new dash pane: {dash_pane:?}");
+                self.dash_panes.push(dash_pane);
+            }
 
-                    for pane in &visible_panes {
-                        if dash_pane_ids.contains(&PaneId::from(*pane)) {
-                            continue;
-                        }
-
-                        let dash_pane = self.map_dash_pane(pane);
-                        // eprintln!("new dash pane: {dash_pane:?}");
-                        self.dash_panes.push(dash_pane);
-                    }
-
-                    // cleanup closed panes
-                    // todo: cleanup closed git pane etc
-                    if self.dash_panes.len() > visible_panes.len() {
-                        let visible_ids: HashSet<_> =
-                            visible_panes.iter().map(|p| PaneId::from(*p)).collect();
-                        self.dash_panes.retain(|p| visible_ids.contains(&p.id));
-                    }
-                }
+            // cleanup closed panes
+            // todo: cleanup closed git pane etc
+            if self.dash_panes.len() > visible_panes.len() {
+                let visible_ids: HashSet<_> =
+                    visible_panes.iter().map(|p| PaneId::from(*p)).collect();
+                self.dash_panes.retain(|p| visible_ids.contains(&p.id));
             }
         }
     }
