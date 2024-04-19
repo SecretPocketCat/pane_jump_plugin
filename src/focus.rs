@@ -24,17 +24,13 @@ impl PluginState {
     }
 
     pub(crate) fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
-        self.prev_focus = Some(std::mem::replace(
-            &mut self.current_focus,
-            focused_pane.into(),
-        ));
-
+        self.current_focus = focused_pane.into();
         self.process_focus_change(self.current_focus.clone());
-        eprintln!("New focus {:?}, prev focus: {:?}", self.current_focus, self.prev_focus);
 
         if let Some(id) = self.keybind_panes.get(&KeybindPane::StatusPaneDash) {
             if id != &self.current_focus.id() {
                 // reset dash pane to refresh fzf list
+                // todo: might need a more general approach for all fzf & other refreshable panes
                 id.close();
                 self.keybind_panes.remove(&KeybindPane::StatusPaneDash);
             }

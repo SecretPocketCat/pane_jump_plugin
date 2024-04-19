@@ -24,11 +24,9 @@ struct PluginState {
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
     current_focus: PaneFocus,
-    prev_focus: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
     dash_panes: Vec<DashPane>,
     dash_pane_id: PaneId,
-    palette: Palette,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
     keybind_panes: HashMap<KeybindPane, PaneId>,
@@ -44,11 +42,9 @@ impl Default for PluginState {
             editor_pane_id: PaneId::Terminal(0),
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
-            prev_focus: None,
             all_focused_panes: Default::default(),
             dash_panes: Default::default(),
             dash_pane_id: PaneId::Plugin(0),
-            palette: Default::default(),
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),
             keybind_panes: Default::default(),
@@ -72,18 +68,12 @@ impl ZellijPlugin for PluginState {
         subscribe(&[
             EventType::PaneUpdate,
             EventType::TabUpdate,
-            EventType::ModeUpdate,
             EventType::Timer,
         ]);
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
-            Event::ModeUpdate(ModeInfo { style, .. }) => {
-                if !self.initialised() {
-                    self.set_palette(style.colors);
-                }
-            }
             Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
             Event::PaneUpdate(panes) => self.handle_pane_update(panes),
             Event::Timer(_) => self.process_timer(),
