@@ -7,12 +7,14 @@ pub(crate) enum QueuedTimerCommand {
     WriteString(String),
     WriteBytes(Vec<u8>),
     FocusEditor,
+    #[allow(dead_code)]
+    ExtraDelay(f64),
 }
 
 #[allow(clippy::enum_variant_names)]
 pub(crate) enum QueuedFocusCommand {
     RenamePane(String),
-    // ShowRenameInput,
+    TriggerRenameInput,
     MarkKeybindPane(KeybindPane),
     MarkTerminalPane(String),
 }
@@ -26,7 +28,7 @@ pub(crate) struct CommandQueue {
 
 impl CommandQueue {
     pub(crate) fn queue_timer_command(&mut self, queued_command: QueuedTimerCommand) {
-        self.set_timer();
+        self.set_timer(0.);
         self.timer_queue.push_back(queued_command);
     }
 
@@ -50,10 +52,10 @@ impl CommandQueue {
         self.focus_queue.push_back(queued_command);
     }
 
-    pub(crate) fn set_timer(&mut self) {
+    pub(crate) fn set_timer(&mut self, extra_delay: f64) {
         if !self.timer_set {
             self.timer_set = true;
-            set_timeout(0.05);
+            set_timeout(0.05 + extra_delay);
         }
     }
 
@@ -61,7 +63,11 @@ impl CommandQueue {
         self.timer_set = false;
         let res = self.timer_queue.pop_front();
         if !self.timer_queue.is_empty() {
-            self.set_timer();
+            if let Some(QueuedTimerCommand::ExtraDelay(extra)) = res {
+                self.set_timer(extra);
+            } else {
+                self.set_timer(0.);
+            }
         }
         res
     }
@@ -78,6 +84,7 @@ impl PluginState {
                 QueuedTimerCommand::WriteString(str) => write_chars(&str),
                 QueuedTimerCommand::WriteBytes(bytes) => zellij_tile::shim::write(bytes),
                 QueuedTimerCommand::FocusEditor => self.focus_editor_pane(),
+                QueuedTimerCommand::ExtraDelay(_) => {}
             }
         }
     }
@@ -95,6 +102,13 @@ impl PluginState {
                 }
                 QueuedFocusCommand::MarkTerminalPane(title) => {
                     self.terminal_panes.entry(id).or_insert(title);
+                }
+                QueuedFocusCommand::TriggerRenameInput => {
+                    // self.command_queue
+                    //     .queue_timer_command(QueuedTimerCommand::ExtraDelay(3.));
+                    // todo: alt+p
+                    // self.command_queue.queue_write_bytes(vec![0x1b, 112]);
+                    // self.command_queue.queue_write_string("r".to_string());
                 }
             }
         }

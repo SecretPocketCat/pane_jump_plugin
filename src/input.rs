@@ -96,7 +96,8 @@ impl PluginState {
                         );
                         self.command_queue
                             .queue_focus_command(QueuedFocusCommand::RenamePane(title));
-                        // todo: queue trigger rename input
+                        self.command_queue
+                            .queue_focus_command(QueuedFocusCommand::TriggerRenameInput);
                     }
                     MessageKeybind::DashStatus
                     | MessageKeybind::DashTerminal
