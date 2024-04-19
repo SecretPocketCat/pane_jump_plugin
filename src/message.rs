@@ -1,16 +1,12 @@
 use itertools::Itertools;
-use lazy_static::lazy_static;
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-};
-use zellij_tile::prelude::{CommandToRun, PaneInfo, PipeMessage, PipeSource};
+use std::convert::{TryFrom, TryInto};
+use zellij_tile::prelude::{CommandToRun, PipeMessage, PipeSource};
 
 use crate::{
-    command_queue::QueuedCommand,
+    command_queue::{QueuedFocusCommand, QueuedTimerCommand},
     input::MessageKeybind,
     pane::{DASH_PANE_NAME, FILEPICKER_PANE_NAME, GIT_PANE_NAME},
-    wavedash, PluginState, PluginStatus, PLUGIN_NAME,
+    PluginState, PluginStatus, PLUGIN_NAME,
 };
 
 pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
@@ -32,6 +28,18 @@ pub(crate) enum KeybindPane {
     K9s,
 }
 
+impl KeybindPane {
+    fn pane_name(&self) -> &str {
+        match self {
+            KeybindPane::StatusPaneDash => DASH_PANE_NAME,
+            KeybindPane::FilePicker => FILEPICKER_PANE_NAME,
+            KeybindPane::Git => GIT_PANE_NAME,
+            KeybindPane::Terminal => "term",
+            KeybindPane::K9s => "k9s",
+        }
+    }
+}
+
 impl TryFrom<MessageKeybind> for KeybindPane {
     type Error = ();
 
@@ -46,26 +54,6 @@ impl TryFrom<MessageKeybind> for KeybindPane {
             | MessageKeybind::HxBufferJumplist
             | MessageKeybind::NewTerminal => Err(()),
         }
-    }
-}
-
-lazy_static! {
-    static ref KEYBIND_PANE_MAP: HashMap<&'static str, KeybindPane> = HashMap::from([
-        (DASH_PANE_NAME, KeybindPane::StatusPaneDash),
-        (FILEPICKER_PANE_NAME, KeybindPane::FilePicker),
-        (GIT_PANE_NAME, KeybindPane::Git),
-        ("k9s", KeybindPane::K9s),
-    ]);
-}
-
-impl TryFrom<&PaneInfo> for KeybindPane {
-    type Error = ();
-
-    fn try_from(value: &PaneInfo) -> Result<Self, Self::Error> {
-        KEYBIND_PANE_MAP
-            .get(value.title.as_str())
-            .cloned()
-            .ok_or(())
     }
 }
 
@@ -94,11 +82,26 @@ impl PluginState {
                         | MessageKeybind::Terminal
                         | MessageKeybind::Git
                         | MessageKeybind::K9s => {
+                            // todo: might need a fix
                             let keybind_pane: KeybindPane = keybind.try_into().unwrap();
                             if let Some(pane_id) = self.keybind_panes.get(&keybind_pane) {
+                                eprintln!(
+                                    "Focusing keybind pane '{:?}', id: '{:?}'",
+                                    keybind_pane, pane_id
+                                );
                                 pane_id.focus();
                             } else {
+                                eprintln!("Opening keybind pane '{:?}'", keybind_pane);
+
                                 Self::open_floating_pane(self.spawn_pane_command(&keybind_pane));
+                                self.command_queue.queue_focus_command(
+                                    QueuedFocusCommand::MarkKeybindPane(keybind_pane),
+                                );
+                                self.command_queue.queue_focus_command(
+                                    QueuedFocusCommand::RenamePane(
+                                        keybind_pane.pane_name().to_string(),
+                                    ),
+                                );
                             }
 
                             if let Some(new_status) = match keybind_pane {
@@ -152,7 +155,8 @@ impl PluginState {
                             {
                                 if let Some(pane) = self.dash_panes.get(idx - 1) {
                                     pane.id.focus();
-                                    self.command_queue.queue_command(QueuedCommand::FocusEditor);
+                                    self.command_queue
+                                        .queue_timer_command(QueuedTimerCommand::FocusEditor);
                                 }
                             }
                         }

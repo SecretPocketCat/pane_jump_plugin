@@ -1,5 +1,4 @@
-use phf::phf_map;
-use std::{collections::HashSet, convert::TryFrom};
+use std::collections::HashSet;
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneInfo, PaneManifest, TabInfo},
     shim::{
@@ -9,21 +8,11 @@ use zellij_tile::{
     },
 };
 
-use crate::{
-    message::{KeybindPane, DASH_CMD, YAZI_CMD},
-    wavedash::DashPane,
-    PluginState, PluginStatus,
-};
+use crate::{message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
 
 pub(crate) const DASH_PANE_NAME: &str = "dash";
 pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
 pub(crate) const GIT_PANE_NAME: &str = "git";
-
-static RENAME_PANE: phf::Map<&'static str, &'static str> = phf_map! {
-    "lazygit" => GIT_PANE_NAME,
-};
-const RENAME_PANE_CONTAINS: [(&str, &str); 2] =
-    [(DASH_CMD, DASH_PANE_NAME), (YAZI_CMD, FILEPICKER_PANE_NAME)];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PaneId {
@@ -134,19 +123,6 @@ impl PluginState {
         }
     }
 
-    fn map_pane_name(&self, pane: &PaneInfo) -> Option<&str> {
-        if let Some(name) = RENAME_PANE.get(&pane.title) {
-            Some(name)
-        } else if let Some((_, name)) = RENAME_PANE_CONTAINS
-            .iter()
-            .find(|(needle, _)| pane.title.contains(needle))
-        {
-            Some(name)
-        } else {
-            None
-        }
-    }
-
     pub(crate) fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
         if let Some(tab) = tabs.get(self.tab) {
             let floating = tab.are_floating_panes_visible;
@@ -163,19 +139,26 @@ impl PluginState {
         }
 
         if let Some(tab_panes) = panes.get(&self.tab) {
+            // collect all focused panes
+            // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
+            self.all_focused_panes = tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
+            self.check_focus_change();
+
             for p in tab_panes {
-                let id = PaneId::from(p);
+                if
+                /*p.terminal_command.is_some() &&*/
+                p.exit_status.is_some() {
+                    let id = PaneId::from(p);
 
-                if let Some(new_name) = self.map_pane_name(p) {
-                    id.rename(new_name);
-                }
-
-                if let Ok(keybind_pane) = KeybindPane::try_from(p) {
-                    if p.terminal_command.is_some() && p.exit_status.is_some() {
-                        id.close();
+                    if let Some((keybind_pane, id)) = self
+                        .keybind_panes
+                        .iter()
+                        .find(|(_, v)| **v == id)
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                    {
+                        eprintln!("Removing keybind pane: {keybind_pane:?}, {id:?}");
                         self.keybind_panes.remove(&keybind_pane);
-                    } else {
-                        self.keybind_panes.entry(keybind_pane).or_insert(id);
+                        id.close();
                     }
                 }
             }
@@ -223,12 +206,6 @@ impl PluginState {
                             visible_panes.iter().map(|p| PaneId::from(*p)).collect();
                         self.dash_panes.retain(|p| visible_ids.contains(&p.id));
                     }
-
-                    // collect all focused panes
-                    // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
-                    self.all_focused_panes =
-                        tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
-                    self.check_focus_change();
                 }
             }
         }
