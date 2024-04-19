@@ -44,8 +44,8 @@ impl PluginState {
                             if let Some(idx) =
                                 payload.lines().next().and_then(|l| l.parse::<usize>().ok())
                             {
-                                if let Some(pane) = self.dash_panes.get(idx - 1) {
-                                    pane.id.focus();
+                                if let Some((id, _)) = self.status_panes.get_index(idx - 1) {
+                                    id.focus();
                                     self.command_queue
                                         .queue_timer_command(QueuedTimerCommand::FocusEditor);
                                 }

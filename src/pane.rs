@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneInfo, PaneManifest, TabInfo},
     shim::{
@@ -8,7 +7,7 @@ use zellij_tile::{
     },
 };
 
-use crate::{wavedash::DashPane, PluginState};
+use crate::PluginState;
 
 pub(crate) const DASH_PANE_NAME: &str = "dash";
 pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
@@ -116,13 +115,6 @@ impl PluginState {
         }
     }
 
-    pub(crate) fn map_dash_pane(&self, pane: &PaneInfo) -> DashPane {
-        DashPane {
-            id: pane.into(),
-            title: pane.title.clone(),
-        }
-    }
-
     pub(crate) fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
         if let Some(tab) = tabs.get(self.tab) {
             let floating = tab.are_floating_panes_visible;
@@ -165,29 +157,22 @@ impl PluginState {
                 .iter()
                 .filter(|p| {
                     p.is_selectable
+                        && !p.is_floating
                         && PaneId::from(*p) != self.dash_pane_id
                         && !p.title.ends_with("-bar")
+                        && p.title != "editor"
                 })
                 .collect();
 
-            let dash_pane_ids: HashSet<_> = self.dash_panes.iter().map(|p| p.id).collect();
-
-            for pane in &visible_panes {
-                if dash_pane_ids.contains(&PaneId::from(*pane)) {
-                    continue;
-                }
-
-                let dash_pane = self.map_dash_pane(pane);
-                // eprintln!("new dash pane: {dash_pane:?}");
-                self.dash_panes.push(dash_pane);
-            }
-
-            // cleanup closed panes
-            // todo: cleanup closed git pane etc
-            if self.dash_panes.len() > visible_panes.len() {
-                let visible_ids: HashSet<_> =
-                    visible_panes.iter().map(|p| PaneId::from(*p)).collect();
-                self.dash_panes.retain(|p| visible_ids.contains(&p.id));
+            for pane in visible_panes {
+                self.status_panes
+                    .entry(pane.into())
+                    .and_modify(|t| {
+                        if t != &pane.title {
+                            *t = pane.title.clone();
+                        }
+                    })
+                    .or_insert_with(|| pane.title.clone());
             }
         }
     }

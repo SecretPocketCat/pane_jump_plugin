@@ -1,10 +1,10 @@
 use command_queue::CommandQueue;
+use indexmap::IndexMap;
 use init::PluginInit;
 use input::KeybindPane;
 use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
-use wavedash::DashPane;
 use zellij_tile::prelude::*;
 
 mod command_queue;
@@ -13,7 +13,6 @@ mod init;
 mod input;
 mod message;
 mod pane;
-mod wavedash;
 
 const PLUGIN_NAME: &str = "wavedash";
 
@@ -25,10 +24,10 @@ struct PluginState {
     floating: bool,
     current_focus: PaneFocus,
     all_focused_panes: Vec<PaneInfo>,
-    dash_panes: Vec<DashPane>,
     dash_pane_id: PaneId,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
+    status_panes: IndexMap<PaneId, String>,
     keybind_panes: HashMap<KeybindPane, PaneId>,
     spawned_extra_term_count: usize,
 }
@@ -43,7 +42,7 @@ impl Default for PluginState {
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),
             all_focused_panes: Default::default(),
-            dash_panes: Default::default(),
+            status_panes: Default::default(),
             dash_pane_id: PaneId::Plugin(0),
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),

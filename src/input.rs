@@ -132,7 +132,7 @@ impl PluginState {
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
             KeybindPane::StatusPaneDash => {
-                let opts = self.dash_panes.iter().map(|p| &p.title).join("\n");
+                let opts = self.status_panes.values().join("\n");
                 let cmd = format!(
                     "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
                     MessageType::FocusPane.as_ref(),
