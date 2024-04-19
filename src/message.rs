@@ -52,6 +52,7 @@ impl TryFrom<MessageKeybind> for KeybindPane {
             MessageKeybind::K9s => Ok(KeybindPane::K9s),
             MessageKeybind::FocusEditorPane
             | MessageKeybind::HxBufferJumplist
+            | MessageKeybind::HxOpenFile
             | MessageKeybind::NewTerminal => Err(()),
         }
     }
@@ -64,6 +65,12 @@ impl PluginState {
                 Ok(keybind) => {
                     match keybind {
                         MessageKeybind::FocusEditorPane => self.editor_pane_id.focus(),
+                        MessageKeybind::HxOpenFile => {
+                            self.focus_editor_pane();
+                            self.command_queue.queue_esc();
+                            self.command_queue.queue_write_bytes(vec![32]); // SPC
+                            self.command_queue.queue_write_bytes(vec![102]); // f
+                        }
                         MessageKeybind::HxBufferJumplist => {
                             self.focus_editor_pane();
                             self.command_queue.queue_esc();
@@ -74,8 +81,12 @@ impl PluginState {
                         }
                         MessageKeybind::NewTerminal => {
                             Self::open_floating_pane(None);
-                            // todo
-                            // self.command_queue.queue_command(QueuedCommand::RenamePane);
+                            self.spawned_extra_term_count += 1;
+                            self.command_queue
+                                .queue_focus_command(QueuedFocusCommand::RenamePane(format!(
+                                    "Terminal #{}",
+                                    self.spawned_extra_term_count
+                                )));
                         }
                         MessageKeybind::Wavedash
                         | MessageKeybind::FilePicker

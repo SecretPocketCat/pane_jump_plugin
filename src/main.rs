@@ -45,6 +45,7 @@ struct PluginState {
     msg_client_id: Uuid,
     command_queue: CommandQueue,
     keybind_panes: HashMap<KeybindPane, PaneId>,
+    spawned_extra_term_count: usize,
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -67,6 +68,7 @@ impl Default for PluginState {
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),
             keybind_panes: Default::default(),
+            spawned_extra_term_count: 0,
         }
     }
 }

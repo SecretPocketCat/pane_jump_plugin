@@ -8,6 +8,7 @@ pub(crate) enum MessageKeybind {
     FilePicker,
     FocusEditorPane,
     HxBufferJumplist,
+    HxOpenFile,
     Git,
     Terminal,
     NewTerminal,
