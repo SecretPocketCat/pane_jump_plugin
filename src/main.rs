@@ -1,6 +1,6 @@
 use command_queue::CommandQueue;
 use init::PluginInit;
-use message::KeybindPane;
+use input::KeybindPane;
 use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
@@ -34,7 +34,6 @@ struct PluginState {
     prev_focus: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
     dash_panes: Vec<DashPane>,
-    last_label_input: Option<String>,
     dash_pane_id: PaneId,
     palette: Palette,
     msg_client_id: Uuid,
@@ -55,7 +54,6 @@ impl Default for PluginState {
             prev_focus: None,
             all_focused_panes: Default::default(),
             dash_panes: Default::default(),
-            last_label_input: None,
             dash_pane_id: PaneId::Plugin(0),
             palette: Default::default(),
             msg_client_id: Uuid::new_v4(),
@@ -79,7 +77,6 @@ impl ZellijPlugin for PluginState {
             PermissionType::WriteToStdin,
         ]);
         subscribe(&[
-            EventType::Key,
             EventType::PaneUpdate,
             EventType::TabUpdate,
             EventType::ModeUpdate,
@@ -89,7 +86,6 @@ impl ZellijPlugin for PluginState {
 
     fn update(&mut self, event: Event) -> bool {
         match event {
-            Event::Key(key) => self.handle_key(key),
             Event::ModeUpdate(ModeInfo { style, .. }) => {
                 if !self.initialised() {
                     self.set_palette(style.colors);

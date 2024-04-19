@@ -62,7 +62,7 @@ impl PluginState {
         ) {
             if let Some(tab) = panes
                 .iter()
-                .find(|(_, panes)| panes.iter().any(|p| &PaneId::from(p) == &self.dash_pane_id))
+                .find(|(_, panes)| panes.iter().any(|p| PaneId::from(p) == self.dash_pane_id))
                 .map(|(tab, _)| *tab)
             {
                 self.set_tab(tab);

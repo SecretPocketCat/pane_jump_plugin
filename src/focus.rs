@@ -1,6 +1,6 @@
 use zellij_tile::prelude::PaneInfo;
 
-use crate::{message::KeybindPane, pane::PaneFocus, PluginState}; 
+use crate::{input::KeybindPane, pane::PaneFocus, PluginState}; 
 
 impl PluginState {
     pub(crate) fn check_focus_change(&mut self) {

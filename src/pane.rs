@@ -8,7 +8,7 @@ use zellij_tile::{
     },
 };
 
-use crate::{message::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
+use crate::{input::KeybindPane, wavedash::DashPane, PluginState, PluginStatus};
 
 pub(crate) const DASH_PANE_NAME: &str = "dash";
 pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
@@ -82,8 +82,8 @@ impl PaneFocus {
 
     pub(crate) fn id(&self) -> PaneId {
         match self {
-            PaneFocus::Tiled(id) => id.clone(),
-            PaneFocus::Floating(id) => id.clone(),
+            PaneFocus::Tiled(id) => *id,
+            PaneFocus::Floating(id) => *id,
         }
     }
 
@@ -154,7 +154,7 @@ impl PluginState {
                         .keybind_panes
                         .iter()
                         .find(|(_, v)| **v == id)
-                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .map(|(k, v)| (*k, *v))
                     {
                         eprintln!("Removing keybind pane: {keybind_pane:?}, {id:?}");
                         self.keybind_panes.remove(&keybind_pane);
@@ -186,8 +186,7 @@ impl PluginState {
                         })
                         .collect();
 
-                    let dash_pane_ids: HashSet<_> =
-                        self.dash_panes.iter().map(|p| p.id.clone()).collect();
+                    let dash_pane_ids: HashSet<_> = self.dash_panes.iter().map(|p| p.id).collect();
 
                     for pane in &visible_panes {
                         if dash_pane_ids.contains(&PaneId::from(*pane)) {

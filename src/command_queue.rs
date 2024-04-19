@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use zellij_tile::shim::{set_timeout, write_chars};
 
-use crate::{message::KeybindPane, pane::PaneFocus, PluginState};
+use crate::{input::KeybindPane, pane::PaneFocus, PluginState};
 
 pub(crate) enum QueuedTimerCommand {
     WriteString(String),
