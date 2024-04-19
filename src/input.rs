@@ -1,7 +1,6 @@
 use crate::{
     command_queue::QueuedFocusCommand,
     message::{MessageType, MSG_CLIENT_ID_ARG},
-    pane::{DASH_PANE_NAME, FILEPICKER_PANE_NAME, GIT_PANE_NAME},
     PluginState, PLUGIN_NAME,
 };
 
@@ -14,7 +13,8 @@ pub(crate) const DASH_CMD: &str = "fzf --layout reverse --with-nth 2..";
 
 #[derive(strum_macros::EnumString, Debug, PartialEq)]
 pub(crate) enum MessageKeybind {
-    Wavedash,
+    DashStatus,
+    DashTerminal,
     FilePicker,
     FocusEditorPane,
     HxBufferJumplist,
@@ -28,6 +28,7 @@ pub(crate) enum MessageKeybind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum KeybindPane {
     StatusPaneDash,
+    TerminalPaneDash,
     FilePicker,
     Git,
     Terminal,
@@ -37,9 +38,10 @@ pub(crate) enum KeybindPane {
 impl KeybindPane {
     fn pane_name(&self) -> &str {
         match self {
-            KeybindPane::StatusPaneDash => DASH_PANE_NAME,
-            KeybindPane::FilePicker => FILEPICKER_PANE_NAME,
-            KeybindPane::Git => GIT_PANE_NAME,
+            KeybindPane::StatusPaneDash => "dash_status",
+            KeybindPane::TerminalPaneDash => "dash_terminal",
+            KeybindPane::FilePicker => "filepicker",
+            KeybindPane::Git => "git",
             KeybindPane::Terminal => "term",
             KeybindPane::K9s => "k9s",
         }
@@ -51,7 +53,8 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 
     fn try_from(value: MessageKeybind) -> Result<Self, Self::Error> {
         match value {
-            MessageKeybind::Wavedash => Ok(KeybindPane::StatusPaneDash),
+            MessageKeybind::DashStatus => Ok(KeybindPane::StatusPaneDash),
+            MessageKeybind::DashTerminal => Ok(KeybindPane::TerminalPaneDash),
             MessageKeybind::FilePicker => Ok(KeybindPane::FilePicker),
             MessageKeybind::Git => Ok(KeybindPane::Git),
             MessageKeybind::Terminal => Ok(KeybindPane::Terminal),
@@ -87,27 +90,24 @@ impl PluginState {
                     MessageKeybind::NewTerminal => {
                         Self::open_floating_pane(None);
                         self.spawned_extra_term_count += 1;
+                        let title = format!("Terminal #{}", self.spawned_extra_term_count);
+                        self.command_queue.queue_focus_command(
+                            QueuedFocusCommand::MarkTerminalPane(title.clone()),
+                        );
                         self.command_queue
-                            .queue_focus_command(QueuedFocusCommand::RenamePane(format!(
-                                "Terminal #{}",
-                                self.spawned_extra_term_count
-                            )));
+                            .queue_focus_command(QueuedFocusCommand::RenamePane(title));
+                        // todo: queue trigger rename input
                     }
-                    MessageKeybind::Wavedash
+                    MessageKeybind::DashStatus
+                    | MessageKeybind::DashTerminal
                     | MessageKeybind::FilePicker
                     | MessageKeybind::Terminal
                     | MessageKeybind::Git
                     | MessageKeybind::K9s => {
                         let keybind_pane: KeybindPane = keybind.try_into().unwrap();
                         if let Some(pane_id) = self.keybind_panes.get(&keybind_pane) {
-                            eprintln!(
-                                "Focusing keybind pane '{:?}', id: '{:?}'",
-                                keybind_pane, pane_id
-                            );
                             pane_id.focus();
                         } else {
-                            eprintln!("Opening keybind pane '{:?}'", keybind_pane);
-
                             Self::open_floating_pane(self.spawn_pane_command(&keybind_pane));
                             self.command_queue.queue_focus_command(
                                 QueuedFocusCommand::MarkKeybindPane(keybind_pane),
@@ -132,18 +132,10 @@ impl PluginState {
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
             KeybindPane::StatusPaneDash => {
-                let opts = self.status_panes.values().join("\n");
-                let cmd = format!(
-                    "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
-                    MessageType::FocusPane.as_ref(),
-                    self.msg_client_id
-                );
-                Some(CommandToRun {
-                    // path: "fish".into(),
-                    path: "bash".into(),
-                    args: vec!["-c".to_string(), cmd],
-                    cwd: None,
-                })
+                Some(self.get_fzf_focus_pane_cmd(self.status_panes.values().map(String::as_str)))
+            }
+            KeybindPane::TerminalPaneDash => {
+                Some(self.get_fzf_focus_pane_cmd(self.terminal_panes.values().map(String::as_str)))
             }
             KeybindPane::FilePicker => {
                 let cmd = format!(
@@ -157,6 +149,21 @@ impl PluginState {
                     cwd: None,
                 })
             }
+        }
+    }
+
+    fn get_fzf_focus_pane_cmd<'a>(&self, options: impl Iterator<Item = &'a str>) -> CommandToRun {
+        let opts = options.into_iter().join("\n");
+        let cmd = format!(
+                    "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
+                    MessageType::FocusPane.as_ref(),
+                    self.msg_client_id
+                );
+        CommandToRun {
+            // path: "fish".into(),
+            path: "bash".into(),
+            args: vec!["-c".to_string(), cmd],
+            cwd: None,
         }
     }
 }

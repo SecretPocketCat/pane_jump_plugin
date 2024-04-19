@@ -9,10 +9,6 @@ use zellij_tile::{
 
 use crate::PluginState;
 
-pub(crate) const DASH_PANE_NAME: &str = "dash";
-pub(crate) const FILEPICKER_PANE_NAME: &str = "filepicker";
-pub(crate) const GIT_PANE_NAME: &str = "git";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PaneId {
     Terminal(u32),

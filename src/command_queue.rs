@@ -10,9 +10,11 @@ pub(crate) enum QueuedTimerCommand {
     FocusEditor,
 }
 
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum QueuedFocusCommand {
     RenamePane(String),
     MarkKeybindPane(KeybindPane),
+    MarkTerminalPane(String),
 }
 
 #[derive(Default)]
@@ -90,6 +92,9 @@ impl PluginState {
                 }
                 QueuedFocusCommand::RenamePane(new_name) => {
                     id.rename(&new_name);
+                }
+                QueuedFocusCommand::MarkTerminalPane(title) => {
+                    self.terminal_panes.entry(id).or_insert(title);
                 }
             }
         }
