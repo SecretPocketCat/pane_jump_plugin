@@ -119,6 +119,8 @@ impl PluginState {
                 self.check_focus_change();
             }
         }
+
+        self.tabs = tabs.iter().map(|t| (t.position, t.name.clone())).collect();
     }
 
     pub(crate) fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {

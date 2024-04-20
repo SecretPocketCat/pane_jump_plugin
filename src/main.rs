@@ -19,6 +19,7 @@ const PLUGIN_NAME: &str = "wavedash";
 struct PluginState {
     init: Option<PluginInit>,
     tab: usize,
+    tabs: IndexMap<usize, String>,
     editor_pane_id: PaneId,
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
@@ -39,6 +40,7 @@ impl Default for PluginState {
         Self {
             init: Some(PluginInit::default()),
             tab: 0,
+            tabs: Default::default(),
             editor_pane_id: PaneId::Terminal(0),
             floating: true,
             current_focus: PaneFocus::Tiled(PaneId::Terminal(0)),

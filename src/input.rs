@@ -13,6 +13,8 @@ pub(crate) const DASH_CMD: &str = "fzf --layout reverse --with-nth 2..";
 
 #[derive(strum_macros::EnumString, Debug, PartialEq)]
 pub(crate) enum MessageKeybind {
+    OpenProject,
+    DashProject,
     DashStatus,
     DashTerminal,
     FilePicker,
@@ -27,8 +29,10 @@ pub(crate) enum MessageKeybind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum KeybindPane {
-    StatusPaneDash,
+    OpenProject,
+    ProjectDash,
     TerminalPaneDash,
+    StatusPaneDash,
     FilePicker,
     Git,
     Terminal,
@@ -38,6 +42,8 @@ pub(crate) enum KeybindPane {
 impl KeybindPane {
     fn pane_name(&self) -> &str {
         match self {
+            KeybindPane::OpenProject => "open_project",
+            KeybindPane::ProjectDash => "dash_project",
             KeybindPane::StatusPaneDash => "dash_status",
             KeybindPane::TerminalPaneDash => "dash_terminal",
             KeybindPane::FilePicker => "filepicker",
@@ -53,6 +59,8 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 
     fn try_from(value: MessageKeybind) -> Result<Self, Self::Error> {
         match value {
+            MessageKeybind::OpenProject => Ok(KeybindPane::OpenProject),
+            MessageKeybind::DashProject => Ok(KeybindPane::ProjectDash),
             MessageKeybind::DashStatus => Ok(KeybindPane::StatusPaneDash),
             MessageKeybind::DashTerminal => Ok(KeybindPane::TerminalPaneDash),
             MessageKeybind::FilePicker => Ok(KeybindPane::FilePicker),
@@ -99,7 +107,9 @@ impl PluginState {
                         self.command_queue
                             .queue_focus_command(QueuedFocusCommand::TriggerRenameInput);
                     }
-                    MessageKeybind::DashStatus
+                    MessageKeybind::OpenProject
+                    | MessageKeybind::DashProject
+                    | MessageKeybind::DashStatus
                     | MessageKeybind::DashTerminal
                     | MessageKeybind::FilePicker
                     | MessageKeybind::Terminal
@@ -132,6 +142,11 @@ impl PluginState {
             KeybindPane::Git => Some(CommandToRun::new("lazygit")),
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
+            KeybindPane::OpenProject => todo!(),
+            KeybindPane::ProjectDash => Some(self.get_fzf_focus_pane_cmd(
+                self.tabs.values().map(String::as_str),
+                MessageType::FocusProject,
+            )),
             KeybindPane::StatusPaneDash => Some(self.get_fzf_focus_pane_cmd(
                 self.status_panes.values().map(String::as_str),
                 MessageType::FocusStatusPane,

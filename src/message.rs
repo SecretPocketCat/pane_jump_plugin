@@ -1,12 +1,18 @@
+use std::{num::ParseIntError, str::FromStr};
+
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use zellij_tile::prelude::{PipeMessage, PipeSource};
+use zellij_tile::{
+    prelude::{PipeMessage, PipeSource},
+    shim::switch_tab_to,
+};
 
 pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
 pub(crate) enum MessageType {
     OpenFile,
+    FocusProject,
     FocusStatusPane,
     FocusTerminalPane,
 }
@@ -41,8 +47,13 @@ impl PluginState {
                                 }
                             }
                         }
+                        MessageType::FocusProject => {
+                            if let Some(idx) = Self::parse_fzf_index(&payload) {
+                                switch_tab_to(idx);
+                            }
+                        }
                         MessageType::FocusStatusPane => {
-                            if let Some(idx) = Self::parse_pane_index(&payload) {
+                            if let Some(idx) = Self::parse_fzf_index::<usize>(&payload) {
                                 if let Some((id, _)) = self.status_panes.get_index(idx - 1) {
                                     id.focus();
                                     self.command_queue
@@ -51,7 +62,7 @@ impl PluginState {
                             }
                         }
                         MessageType::FocusTerminalPane => {
-                            if let Some(idx) = Self::parse_pane_index(&payload) {
+                            if let Some(idx) = Self::parse_fzf_index::<usize>(&payload) {
                                 if let Some((id, _)) = self.terminal_panes.get_index(idx - 1) {
                                     id.focus();
                                 }
@@ -65,7 +76,10 @@ impl PluginState {
         false
     }
 
-    fn parse_pane_index(payload: &str) -> Option<usize> {
-        payload.lines().next().and_then(|l| l.parse::<usize>().ok())
+    fn parse_fzf_index<T>(payload: &str) -> Option<T>
+    where
+        T: FromStr<Err = ParseIntError>,
+    {
+        payload.lines().next().and_then(|l| l.parse::<T>().ok())
     }
 }
