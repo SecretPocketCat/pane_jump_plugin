@@ -112,26 +112,29 @@ impl PluginState {
     }
 
     pub(crate) fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
+        // todo: needs a project-based rewrite
         if let Some(tab) = tabs.get(self.tab) {
             let floating = tab.are_floating_panes_visible;
-            if self.floating != floating {
-                self.floating = floating;
+            let proj = self.active_project_mut();
+            if proj.floating != floating {
+                proj.floating = floating;
                 self.check_focus_change();
             }
         }
 
-        self.tabs = tabs.iter().map(|t| (t.position, t.name.clone())).collect();
+        // self.projects = tabs.iter().map(|t| (t.position, t.name.clone())).collect();
     }
 
     pub(crate) fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
-        if !self.check_itialised(&panes) {
-            return;
-        }
+        // if !self.check_itialised(&panes) {
+        //     return;
+        // }
 
         if let Some(tab_panes) = panes.get(&self.tab) {
             // collect all focused panes
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
-            self.all_focused_panes = tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
+            self.active_project_mut().all_focused_panes =
+                tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
             self.check_focus_change();
 
             for p in tab_panes {
@@ -139,13 +142,16 @@ impl PluginState {
                     let id = PaneId::from(p);
 
                     if let Some((keybind_pane, id)) = self
+                        .active_project()
                         .keybind_panes
                         .iter()
                         .find(|(_, v)| **v == id)
                         .map(|(k, v)| (*k, *v))
                     {
                         eprintln!("Removing keybind pane: {keybind_pane:?}, {id:?}");
-                        self.keybind_panes.remove(&keybind_pane);
+                        self.active_project_mut()
+                            .keybind_panes
+                            .remove(&keybind_pane);
                         id.close();
                     }
                 }
@@ -156,14 +162,15 @@ impl PluginState {
                 .filter(|p| {
                     p.is_selectable
                         && !p.is_floating
-                        && PaneId::from(*p) != self.dash_pane_id
+                        && PaneId::from(*p) != self.plugin_id
                         && !p.title.ends_with("-bar")
                         && p.title != "editor"
                 })
                 .collect();
 
             for pane in visible_panes {
-                self.status_panes
+                self.active_project_mut()
+                    .status_panes
                     .entry(pane.into())
                     .and_modify(|t| {
                         if t != &pane.title {

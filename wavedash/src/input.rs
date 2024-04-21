@@ -5,6 +5,7 @@ use crate::{
 };
 
 use std::convert::{TryFrom, TryInto};
+use utils::get_fzf_pane_cmd;
 use zellij_tile::{
     prelude::{CommandToRun, PipeMessage},
     shim::{get_plugin_ids, run_command},
@@ -103,7 +104,7 @@ impl PluginState {
                             Default::default(),
                         );
                     }
-                    MessageKeybind::FocusEditorPane => self.editor_pane_id.focus(),
+                    MessageKeybind::FocusEditorPane => self.focus_editor_pane(),
                     MessageKeybind::HxOpenFile => {
                         self.focus_editor_pane();
                         self.command_queue.queue_esc();
@@ -119,9 +120,10 @@ impl PluginState {
                         ]);
                     }
                     MessageKeybind::NewTerminal => {
+                        let proj = self.active_project_mut();
                         Self::open_floating_pane(None);
-                        self.spawned_extra_term_count += 1;
-                        let title = format!("Terminal #{}", self.spawned_extra_term_count);
+                        proj.spawned_extra_term_count += 1;
+                        let title = format!("Terminal #{}", proj.spawned_extra_term_count);
                         self.command_queue.queue_focus_command(
                             QueuedFocusCommand::MarkTerminalPane(title.clone()),
                         );
@@ -138,7 +140,9 @@ impl PluginState {
                     | MessageKeybind::Git
                     | MessageKeybind::K9s => {
                         let keybind_pane: KeybindPane = keybind.try_into().unwrap();
-                        if let Some(pane_id) = self.keybind_panes.get(&keybind_pane) {
+                        if let Some(pane_id) =
+                            self.active_project().keybind_panes.get(&keybind_pane)
+                        {
                             pane_id.focus();
                         } else {
                             Self::open_floating_pane(self.spawn_pane_command(&keybind_pane));
@@ -198,17 +202,29 @@ impl PluginState {
                 None
                 // Some(self.get_fzf_pane_cmd(dirs, MessageType::OpenProject))
             }
-            KeybindPane::ProjectDash => Some(self.get_fzf_pane_cmd(
-                self.tabs.values().map(String::as_str),
-                MessageType::FocusProject,
+            KeybindPane::ProjectDash => Some(get_fzf_pane_cmd(
+                self.projects.values().map(|p| p.title.as_str()),
+                PLUGIN_NAME,
+                MessageType::FocusProject.as_ref(),
+                self.msg_client_id,
             )),
-            KeybindPane::StatusPaneDash => Some(self.get_fzf_pane_cmd(
-                self.status_panes.values().map(String::as_str),
-                MessageType::FocusStatusPane,
+            KeybindPane::StatusPaneDash => Some(get_fzf_pane_cmd(
+                self.active_project()
+                    .status_panes
+                    .values()
+                    .map(String::as_str),
+                PLUGIN_NAME,
+                MessageType::FocusStatusPane.as_ref(),
+                self.msg_client_id,
             )),
-            KeybindPane::TerminalPaneDash => Some(self.get_fzf_pane_cmd(
-                self.terminal_panes.values().map(String::as_str),
-                MessageType::FocusTerminalPane,
+            KeybindPane::TerminalPaneDash => Some(get_fzf_pane_cmd(
+                self.active_project()
+                    .terminal_panes
+                    .values()
+                    .map(String::as_str),
+                PLUGIN_NAME,
+                MessageType::FocusTerminalPane.as_ref(),
+                self.msg_client_id,
             )),
             KeybindPane::FilePicker => {
                 let cmd = format!(

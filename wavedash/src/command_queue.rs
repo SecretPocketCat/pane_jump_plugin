@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
+use utils::get_fzf_pane_cmd;
 use zellij_tile::shim::{set_timeout, write_chars};
 
-use crate::{input::KeybindPane, message::MessageType, pane::PaneFocus, PluginState};
+use crate::{input::KeybindPane, message::MessageType, pane::PaneFocus, PluginState, PLUGIN_NAME};
 
 pub(crate) enum QueuedTimerCommand {
     WriteString(String),
@@ -105,9 +106,11 @@ impl PluginState {
         }
 
         // todo: insert keybind pane etc.
-        Self::open_floating_pane(Some(self.get_fzf_pane_cmd(
+        Self::open_floating_pane(Some(get_fzf_pane_cmd(
             String::from_utf8_lossy(&stdout).lines(),
-            MessageType::OpenProject,
+            PLUGIN_NAME,
+            MessageType::OpenProject.as_ref(),
+            self.msg_client_id,
         )));
     }
 
@@ -116,13 +119,19 @@ impl PluginState {
         while let Some(item) = self.command_queue.dequeue_focus_command() {
             match item {
                 QueuedFocusCommand::MarkKeybindPane(keybind_pane) => {
-                    self.keybind_panes.entry(keybind_pane).or_insert(id);
+                    self.active_project_mut()
+                        .keybind_panes
+                        .entry(keybind_pane)
+                        .or_insert(id);
                 }
                 QueuedFocusCommand::RenamePane(new_name) => {
                     id.rename(&new_name);
                 }
                 QueuedFocusCommand::MarkTerminalPane(title) => {
-                    self.terminal_panes.entry(id).or_insert(title);
+                    self.active_project_mut()
+                        .terminal_panes
+                        .entry(id)
+                        .or_insert(title);
                 }
                 QueuedFocusCommand::TriggerRenameInput => {
                     // self.command_queue

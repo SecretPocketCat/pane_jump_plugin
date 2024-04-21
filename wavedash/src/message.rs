@@ -1,6 +1,6 @@
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use kdl::KdlDocument;
+use utils::parse_fzf_index;
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
     shim::{new_tabs_with_layout, switch_tab_to},
@@ -52,13 +52,15 @@ impl PluginState {
                             new_tabs_with_layout(&self.layout("/home/spc/projects/"));
                         }
                         MessageType::FocusProject => {
-                            if let Some(idx) = Self::parse_fzf_index(&payload) {
+                            if let Some(idx) = parse_fzf_index(&payload) {
                                 switch_tab_to(idx);
                             }
                         }
                         MessageType::FocusStatusPane => {
-                            if let Some(idx) = Self::parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) = self.status_panes.get_index(idx - 1) {
+                            if let Some(idx) = parse_fzf_index::<usize>(&payload) {
+                                if let Some((id, _)) =
+                                    self.active_project().status_panes.get_index(idx - 1)
+                                {
                                     id.focus();
                                     self.command_queue
                                         .queue_timer_command(QueuedTimerCommand::FocusEditor);
@@ -66,8 +68,10 @@ impl PluginState {
                             }
                         }
                         MessageType::FocusTerminalPane => {
-                            if let Some(idx) = Self::parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) = self.terminal_panes.get_index(idx - 1) {
+                            if let Some(idx) = parse_fzf_index::<usize>(&payload) {
+                                if let Some((id, _)) =
+                                    self.active_project().terminal_panes.get_index(idx - 1)
+                                {
                                     id.focus();
                                 }
                             }

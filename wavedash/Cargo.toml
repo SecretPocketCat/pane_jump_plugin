@@ -1,0 +1,20 @@
+[package]
+name = "wavedash"
+version = "0.1.0"
+authors = ["SecretPocketCat"]
+edition = "2021"
+
+[dependencies]
+ansi_term = "0.12.1"
+zellij-tile = { workspace = true }
+chrono = "0.4.0"
+itertools = "0.12.1"
+# zellij-tile-utils = { git = "https://github.com/SecretPocketCat/zellij", branch = "hide_pane_commands" }
+zellij-tile-utils = { path = "/home/spc/projects/zellij/zellij/zellij-tile-utils" }
+uuid = { workspace = true }
+strum_macros = "0.26.2"
+strum = "0.26.2"
+lazy_static = "1.4.0"
+indexmap = "2.2.6"
+kdl = "4.6.0"
+utils = { path = "../utils" }

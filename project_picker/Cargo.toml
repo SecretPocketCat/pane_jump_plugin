@@ -1,0 +1,10 @@
+[package]
+name = "project_picker"
+version = "0.1.0"
+authors = ["SecretPocketCat"]
+edition = "2021"
+
+[dependencies]
+zellij-tile = { workspace = true }
+utils = { path = "../utils" }
+uuid = { workspace = true }
