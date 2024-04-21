@@ -1,4 +1,4 @@
-use utils::pane::{PaneFocus, PaneId};
+use utils::pane::PaneId;
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
     shim::{get_plugin_ids, hide_self, open_command_pane_floating, open_terminal_floating},

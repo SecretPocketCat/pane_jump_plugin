@@ -1,14 +1,16 @@
 use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState, PLUGIN_NAME};
 
 use std::convert::{TryFrom, TryInto};
-use utils::{fzf::get_fzf_pane_cmd, message::MSG_CLIENT_ID_ARG};
+use utils::{
+    fzf::{get_fzf_pane_cmd, run_find_repos_command},
+    message::MSG_CLIENT_ID_ARG,
+};
 use zellij_tile::{
     prelude::{CommandToRun, PipeMessage},
     shim::{get_plugin_ids, run_command},
 };
 
 pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
-pub(crate) const DASH_CMD: &str = "fzf --layout reverse --with-nth 2..";
 
 #[derive(strum_macros::EnumString, Debug, PartialEq)]
 pub(crate) enum MessageKeybind {
@@ -82,23 +84,7 @@ impl PluginState {
                     MessageKeybind::OpenProject => {
                         // run cmd to find git repos
                         let cwd = get_plugin_ids().initial_cwd;
-                        run_command(
-                            &[
-                                "find",
-                                // &cwd.to_string_lossy(),
-                                "/home/spc/projects",
-                                "-type",
-                                "d",
-                                "-exec",
-                                "test",
-                                "-d",
-                                "{}/.git",
-                                ";",
-                                "-prune",
-                                "-print",
-                            ],
-                            Default::default(),
-                        );
+                        run_find_repos_command(&*cwd.to_string_lossy());
                     }
                     MessageKeybind::FocusEditorPane => self.focus_editor_pane(),
                     MessageKeybind::HxOpenFile => {

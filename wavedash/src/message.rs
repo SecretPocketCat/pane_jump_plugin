@@ -1,9 +1,9 @@
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use utils::{fzf::parse_fzf_index, message::MSG_CLIENT_ID_ARG};
+use utils::{fzf::parse_fzf_index, message::MSG_CLIENT_ID_ARG, template::wavedash_template};
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
-    shim::{new_tabs_with_layout, switch_tab_to},
+    shim::{close_focus, new_tabs_with_layout, switch_tab_to},
 };
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
@@ -46,8 +46,11 @@ impl PluginState {
                             }
                         }
                         MessageType::OpenProject => {
-                            // todo
-                            // new_tabs_with_layout(&self.layout("/home/spc/projects/"));
+                            if let Some(cwd) = payload.lines().next().map(|l| l.to_string()) {
+                                new_tabs_with_layout(&wavedash_template(&cwd, &cwd, true));
+                            }
+
+                            close_focus();
                         }
                         MessageType::FocusProject => {
                             if let Some(idx) = parse_fzf_index(&payload) {
