@@ -1,8 +1,8 @@
 use command_queue::CommandQueue;
 use indexmap::IndexMap;
 use input::KeybindPane;
-use pane::{PaneFocus, PaneId};
 use std::collections::{BTreeMap, HashMap};
+use utils::pane::{PaneFocus, PaneId};
 use uuid::Uuid;
 use zellij_tile::prelude::*;
 
@@ -13,7 +13,6 @@ mod input;
 mod message;
 mod pane;
 mod project;
-mod template;
 
 const PLUGIN_NAME: &str = "wavedash";
 

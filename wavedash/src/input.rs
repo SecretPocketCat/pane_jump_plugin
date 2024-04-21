@@ -5,7 +5,7 @@ use crate::{
 };
 
 use std::convert::{TryFrom, TryInto};
-use utils::get_fzf_pane_cmd;
+use utils::fzf::get_fzf_pane_cmd;
 use zellij_tile::{
     prelude::{CommandToRun, PipeMessage},
     shim::{get_plugin_ids, run_command},
@@ -207,6 +207,7 @@ impl PluginState {
                 PLUGIN_NAME,
                 MessageType::FocusProject.as_ref(),
                 self.msg_client_id,
+                true,
             )),
             KeybindPane::StatusPaneDash => Some(get_fzf_pane_cmd(
                 self.active_project()
@@ -216,6 +217,7 @@ impl PluginState {
                 PLUGIN_NAME,
                 MessageType::FocusStatusPane.as_ref(),
                 self.msg_client_id,
+                true,
             )),
             KeybindPane::TerminalPaneDash => Some(get_fzf_pane_cmd(
                 self.active_project()
@@ -225,6 +227,7 @@ impl PluginState {
                 PLUGIN_NAME,
                 MessageType::FocusTerminalPane.as_ref(),
                 self.msg_client_id,
+                true,
             )),
             KeybindPane::FilePicker => {
                 let cmd = format!(

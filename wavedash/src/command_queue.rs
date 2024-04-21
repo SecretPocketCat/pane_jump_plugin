@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
-use utils::get_fzf_pane_cmd;
+use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
 use zellij_tile::shim::{set_timeout, write_chars};
 
-use crate::{input::KeybindPane, message::MessageType, pane::PaneFocus, PluginState, PLUGIN_NAME};
+use crate::{input::KeybindPane, message::MessageType, PluginState, PLUGIN_NAME};
 
 pub(crate) enum QueuedTimerCommand {
     WriteString(String),
@@ -111,6 +111,7 @@ impl PluginState {
             PLUGIN_NAME,
             MessageType::OpenProject.as_ref(),
             self.msg_client_id,
+            false,
         )));
     }
 

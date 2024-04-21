@@ -1,12 +1,7 @@
 use core::panic;
 use kdl::KdlDocument;
-use std::collections::HashMap;
-use zellij_tile::{
-    prelude::PaneInfo,
-    shim::{dump_session_layout, hide_self},
-};
 
-use crate::{pane::PaneId, PluginState};
+use crate::PluginState;
 
 const LAYOUT_CWD_PLACEHOLDER: &str = "___layout_cwd___";
 

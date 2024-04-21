@@ -1,6 +1,6 @@
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use utils::parse_fzf_index;
+use utils::fzf::parse_fzf_index;
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
     shim::{new_tabs_with_layout, switch_tab_to},
