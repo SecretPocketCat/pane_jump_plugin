@@ -47,9 +47,10 @@ impl PluginState {
                         }
                         MessageType::OpenProject => {
                             if let Some(cwd) = payload.lines().next().map(|l| l.to_string()) {
-                                new_tabs_with_layout(&wavedash_template(&cwd, &cwd, true));
+                                new_tabs_with_layout(&wavedash_template(&cwd, &cwd, false));
                             }
 
+                            // close fzf pane
                             close_focus();
                         }
                         MessageType::FocusProject => {
