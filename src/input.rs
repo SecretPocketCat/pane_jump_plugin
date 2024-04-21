@@ -4,9 +4,11 @@ use crate::{
     PluginState, PLUGIN_NAME,
 };
 
-use itertools::Itertools;
 use std::convert::{TryFrom, TryInto};
-use zellij_tile::prelude::{CommandToRun, PipeMessage};
+use zellij_tile::{
+    prelude::{CommandToRun, PipeMessage},
+    shim::{get_plugin_ids, run_command},
+};
 
 pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
 pub(crate) const DASH_CMD: &str = "fzf --layout reverse --with-nth 2..";
@@ -80,6 +82,27 @@ impl PluginState {
         match pipe_message.name.parse::<MessageKeybind>() {
             Ok(keybind) => {
                 match keybind {
+                    MessageKeybind::OpenProject => {
+                        // run cmd to find git repos
+                        let cwd = get_plugin_ids().initial_cwd;
+                        run_command(
+                            &[
+                                "find",
+                                // &cwd.to_string_lossy(),
+                                "/home/spc/projects",
+                                "-type",
+                                "d",
+                                "-exec",
+                                "test",
+                                "-d",
+                                "{}/.git",
+                                ";",
+                                "-prune",
+                                "-print",
+                            ],
+                            Default::default(),
+                        );
+                    }
                     MessageKeybind::FocusEditorPane => self.editor_pane_id.focus(),
                     MessageKeybind::HxOpenFile => {
                         self.focus_editor_pane();
@@ -107,8 +130,7 @@ impl PluginState {
                         self.command_queue
                             .queue_focus_command(QueuedFocusCommand::TriggerRenameInput);
                     }
-                    MessageKeybind::OpenProject
-                    | MessageKeybind::DashProject
+                    MessageKeybind::DashProject
                     | MessageKeybind::DashStatus
                     | MessageKeybind::DashTerminal
                     | MessageKeybind::FilePicker
@@ -132,7 +154,7 @@ impl PluginState {
                 }
             }
             Err(_) => {
-                eprintln!("Missing name for keybind pipe message {pipe_message:?}");
+                eprintln!("Unknown keybind pipe name for message {pipe_message:?}");
             }
         }
     }
@@ -142,16 +164,49 @@ impl PluginState {
             KeybindPane::Git => Some(CommandToRun::new("lazygit")),
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
-            KeybindPane::OpenProject => todo!(),
-            KeybindPane::ProjectDash => Some(self.get_fzf_focus_pane_cmd(
+            KeybindPane::OpenProject => {
+                // todo: fzf, but get dirs first
+
+                // original wezterm lua code used for projects
+                // local workspace_roots = {
+                //   work = "~/work",
+                //   gamedev = "~/gamedev",
+                //   hobby = "~/projects",
+                // }
+                // local extra_repos = {
+                //   hobby = {
+                //     {
+                //       id = wezterm.home_dir .. "/dotfiles",
+                //       label = "dotfiles"
+                //     },
+                //         {
+                //       id = wezterm.home_dir .. "/dotfiles/.config/hypr/",
+                //       label = "hypr"
+                //     },
+                //         {
+                //       id = wezterm.home_dir .. "/dotfiles/.config/wezterm/",
+                //       label = "wez"
+                //     },
+                //     {
+                //       id = wezterm.home_dir .. "/projects/keebs/qmk/keyboards/klor/keymaps/secretpocketcat/",
+                //       label = "qmk/klor"
+                //     }
+                //   }
+                // }
+
+                // todo
+                None
+                // Some(self.get_fzf_pane_cmd(dirs, MessageType::OpenProject))
+            }
+            KeybindPane::ProjectDash => Some(self.get_fzf_pane_cmd(
                 self.tabs.values().map(String::as_str),
                 MessageType::FocusProject,
             )),
-            KeybindPane::StatusPaneDash => Some(self.get_fzf_focus_pane_cmd(
+            KeybindPane::StatusPaneDash => Some(self.get_fzf_pane_cmd(
                 self.status_panes.values().map(String::as_str),
                 MessageType::FocusStatusPane,
             )),
-            KeybindPane::TerminalPaneDash => Some(self.get_fzf_focus_pane_cmd(
+            KeybindPane::TerminalPaneDash => Some(self.get_fzf_pane_cmd(
                 self.terminal_panes.values().map(String::as_str),
                 MessageType::FocusTerminalPane,
             )),
@@ -167,25 +222,6 @@ impl PluginState {
                     cwd: None,
                 })
             }
-        }
-    }
-
-    fn get_fzf_focus_pane_cmd<'a>(
-        &self,
-        options: impl Iterator<Item = &'a str>,
-        message_type: MessageType,
-    ) -> CommandToRun {
-        let opts = options.into_iter().join("\n");
-        let cmd = format!(
-                    "printf '{opts}' | command cat -n | {DASH_CMD} | awk '{{print $1}}' | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
-                    message_type.as_ref(),
-                    self.msg_client_id
-                );
-        CommandToRun {
-            // path: "fish".into(),
-            path: "bash".into(),
-            args: vec!["-c".to_string(), cmd],
-            cwd: None,
         }
     }
 }

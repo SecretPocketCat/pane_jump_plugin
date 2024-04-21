@@ -25,7 +25,7 @@ impl PluginState {
 
     pub(crate) fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
         self.current_focus = focused_pane.into();
-        self.process_focus_change(self.current_focus.clone());
+        self.handle_focus_change(self.current_focus.clone());
 
         if let Some(id) = self.keybind_panes.get(&KeybindPane::StatusPaneDash) {
             if id != &self.current_focus.id() {

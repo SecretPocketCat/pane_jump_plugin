@@ -9,6 +9,7 @@ use zellij_tile::prelude::*;
 
 mod command_queue;
 mod focus;
+mod fzf;
 mod init;
 mod input;
 mod message;
@@ -32,6 +33,7 @@ struct PluginState {
     terminal_panes: IndexMap<PaneId, String>,
     keybind_panes: HashMap<KeybindPane, PaneId>,
     spawned_extra_term_count: usize,
+    new_tab_layout: String,
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -52,6 +54,7 @@ impl Default for PluginState {
             terminal_panes: Default::default(),
             keybind_panes: Default::default(),
             spawned_extra_term_count: 0,
+            new_tab_layout: Default::default(),
         }
     }
 }
@@ -72,6 +75,8 @@ impl ZellijPlugin for PluginState {
             EventType::PaneUpdate,
             EventType::TabUpdate,
             EventType::Timer,
+            EventType::RunCommandResult,
+            EventType::CustomMessage,
         ]);
     }
 
@@ -79,7 +84,15 @@ impl ZellijPlugin for PluginState {
         match event {
             Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
             Event::PaneUpdate(panes) => self.handle_pane_update(panes),
-            Event::Timer(_) => self.process_timer(),
+            Event::Timer(_) => self.handle_timer(),
+            Event::RunCommandResult(exit_code, stdout, stderr, _ctx) => {
+                self.handle_command_result(exit_code, stdout, stderr)
+            }
+            Event::CustomMessage(message, payload) => {
+                if message == "session_layout" {
+                    self.set_new_tab_layout(Self::format_layout(payload));
+                }
+            }
             _ => unimplemented!("{event:?}"),
         }
 

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use zellij_tile::shim::{set_timeout, write_chars};
 
-use crate::{input::KeybindPane, pane::PaneFocus, PluginState};
+use crate::{input::KeybindPane, message::MessageType, pane::PaneFocus, PluginState};
 
 pub(crate) enum QueuedTimerCommand {
     WriteString(String),
@@ -78,7 +78,7 @@ impl CommandQueue {
 }
 
 impl PluginState {
-    pub(crate) fn process_timer(&mut self) {
+    pub(crate) fn handle_timer(&mut self) {
         if let Some(item) = self.command_queue.dequeue_timer_command() {
             match item {
                 QueuedTimerCommand::WriteString(str) => write_chars(&str),
@@ -89,12 +89,33 @@ impl PluginState {
         }
     }
 
-    pub(crate) fn process_focus_change(&mut self, focus: PaneFocus) {
+    pub(crate) fn handle_command_result(
+        &mut self,
+        exit_code: Option<i32>,
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+    ) {
+        if exit_code.is_some_and(|c| c != 0) {
+            eprintln!(
+                "Command has failed - exit code: '{}', err: {}",
+                exit_code.unwrap(),
+                String::from_utf8_lossy(&stderr)
+            );
+            return;
+        }
+
+        // todo: insert keybind pane etc.
+        Self::open_floating_pane(Some(self.get_fzf_pane_cmd(
+            String::from_utf8_lossy(&stdout).lines(),
+            MessageType::OpenProject,
+        )));
+    }
+
+    pub(crate) fn handle_focus_change(&mut self, focus: PaneFocus) {
         let id = focus.id();
         while let Some(item) = self.command_queue.dequeue_focus_command() {
             match item {
                 QueuedFocusCommand::MarkKeybindPane(keybind_pane) => {
-                    eprintln!("Marking keybind pane '{keybind_pane:?}', id: '{id:?}'");
                     self.keybind_panes.entry(keybind_pane).or_insert(id);
                 }
                 QueuedFocusCommand::RenamePane(new_name) => {
