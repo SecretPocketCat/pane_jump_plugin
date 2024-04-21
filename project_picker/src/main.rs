@@ -3,7 +3,7 @@ use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
-    template::{self, wavedash_template},
+    template::wavedash_template,
 };
 use uuid::Uuid;
 use zellij_tile::prelude::*;
@@ -60,15 +60,21 @@ impl ZellijPlugin for PluginState {
         ]);
         subscribe(&[
             EventType::PaneUpdate,
-            // EventType::TabUpdate,
+            EventType::TabUpdate,
             EventType::RunCommandResult,
-            // EventType::CustomMessage,
         ]);
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
-            // Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
+            Event::TabUpdate(tabs) => {
+                if let PluginStatus::Picked = self.status {
+                    if tabs.len() > 1 {
+                        // last pane, so this will close the tab
+                        close_self();
+                    }
+                }
+            }
             Event::PaneUpdate(PaneManifest { panes }) => match self.status {
                 PluginStatus::Init => {
                     run_find_repos_command(&*get_plugin_ids().initial_cwd.to_string_lossy());
@@ -78,18 +84,11 @@ impl ZellijPlugin for PluginState {
                     if let Some(pane) = panes
                         .values()
                         .flatten()
-                        .find(|p| PaneId::from(*p) == self.pane_id)
+                        .find(|p| p.terminal_command.is_some() && p.title != PLUGIN_NAME)
                     {
-                        if let Some(code) = pane.exit_status {
-                            match code {
-                                0 => {}
-                                _ => {
-                                    self.show_project_selection();
-                                }
-                            }
-                        }
+                        let id = PaneId::from(pane);
+                        id.rename(PLUGIN_NAME);
                     }
-                    // todo: restart if picker was escaped without picking an option
                 }
                 PluginStatus::Picked => {}
             },
@@ -110,11 +109,6 @@ impl ZellijPlugin for PluginState {
                     }
                 }
             }
-            // Event::CustomMessage(message, payload) => {
-            //     // if message == "session_layout" {
-            //     //     self.set_new_tab_layout(Self::format_layout(payload));
-            //     // }
-            // }
             _ => unimplemented!("{event:?}"),
         }
 
@@ -137,7 +131,14 @@ impl ZellijPlugin for PluginState {
                     &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
                     "",
                 );
+                // close the in-place fzf pane
+                close_focus();
                 new_tabs_with_layout(&wavedash_template(&cwd, &name, true));
+                self.status = PluginStatus::Picked;
+            } else {
+                // replace cancelled fzf with a new one
+                close_focus();
+                self.show_project_selection();
             }
         }
 
