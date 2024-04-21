@@ -15,6 +15,7 @@ mod project;
 
 const PLUGIN_NAME: &str = "wavedash";
 
+#[derive(Debug)]
 pub(crate) struct ProjectTab {
     title: String,
     editor_pane_id: Option<PaneId>,
@@ -29,8 +30,8 @@ pub(crate) struct ProjectTab {
 }
 
 impl ProjectTab {
-    pub(crate) fn initialized(&self) -> bool {
-        self.editor_pane_id.is_some()
+    pub(crate) fn uninit(&self) -> bool {
+        self.editor_pane_id.is_none()
     }
 }
 
@@ -96,8 +97,8 @@ impl ZellijPlugin for PluginState {
     }
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
-        if !self.project_uninit() {
-            eprintln!("Tab [{}] not initialized yet", self.tab);
+        if self.project_uninit() {
+            eprintln!("Tab [{}] not initialized yet", self.tab,);
             return false;
         }
 

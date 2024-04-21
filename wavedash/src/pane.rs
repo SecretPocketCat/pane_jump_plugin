@@ -1,7 +1,7 @@
 use utils::pane::{PaneFocus, PaneId};
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
-    shim::{get_plugin_ids, open_command_pane_floating, open_terminal_floating},
+    shim::{get_plugin_ids, hide_self, open_command_pane_floating, open_terminal_floating},
 };
 
 use crate::{PluginState, ProjectTab};
@@ -27,8 +27,8 @@ impl PluginState {
         if let Some(tab) = tabs.iter().find(|t| t.active) {
             self.tab = tab.position;
             let floating = tab.are_floating_panes_visible;
-            if !self.project_uninit() {
             if self.project_uninit() {
+                hide_self();
                 self.projects.insert(
                     tab.position,
                     ProjectTab {
@@ -43,17 +43,14 @@ impl PluginState {
                         spawned_extra_term_count: 0,
                     },
                 );
-
-            let proj = self.active_project_mut();
-            if proj.floating != floating {
-                proj.floating = floating;
-                self.check_focus_change();
             } else {
+                let proj = self.active_project_mut();
+                if proj.floating != floating {
+                    proj.floating = floating;
+                    self.check_focus_change();
                 }
             }
         }
-
-        // self.projects = tabs.iter().map(|t| (t.position, t.name.clone())).collect();
     }
 
     pub(crate) fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
@@ -61,18 +58,22 @@ impl PluginState {
             if self.project_uninit() {
                 continue;
             }
+
             // collect all focused panes
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
             self.active_project_mut().all_focused_panes =
                 tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
+            self.check_focus_change();
 
             if *i == self.tab {
-                self.check_focus_change();
-
                 for p in tab_panes {
-                    if p.terminal_command.is_some() && p.exit_status.is_some() {
-                        let id = PaneId::from(p);
+                    let id = PaneId::from(p);
 
+                    if self.active_project().uninit() && p.title == "editor" {
+                        self.active_project_mut().editor_pane_id = Some(id);
+                    }
+
+                    if p.terminal_command.is_some() && p.exit_status.is_some() {
                         if let Some((keybind_pane, id)) = self
                             .active_project()
                             .keybind_panes
