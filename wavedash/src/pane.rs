@@ -28,6 +28,7 @@ impl PluginState {
             self.tab = tab.position;
             let floating = tab.are_floating_panes_visible;
             if !self.project_uninit() {
+            if self.project_uninit() {
                 self.projects.insert(
                     tab.position,
                     ProjectTab {
@@ -42,12 +43,13 @@ impl PluginState {
                         spawned_extra_term_count: 0,
                     },
                 );
-            }
 
             let proj = self.active_project_mut();
             if proj.floating != floating {
                 proj.floating = floating;
                 self.check_focus_change();
+            } else {
+                }
             }
         }
 
@@ -56,12 +58,15 @@ impl PluginState {
 
     pub(crate) fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
         for (i, tab_panes) in panes.iter() {
+            if self.project_uninit() {
+                continue;
+            }
             // collect all focused panes
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
             self.active_project_mut().all_focused_panes =
                 tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
 
-            if *i == self.tab && !self.project_uninit() {
+            if *i == self.tab {
                 self.check_focus_change();
 
                 for p in tab_panes {
