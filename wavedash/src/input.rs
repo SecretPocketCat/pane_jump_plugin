@@ -1,11 +1,7 @@
-use crate::{
-    command_queue::QueuedFocusCommand,
-    message::{MessageType, MSG_CLIENT_ID_ARG},
-    PluginState, PLUGIN_NAME,
-};
+use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState, PLUGIN_NAME};
 
 use std::convert::{TryFrom, TryInto};
-use utils::fzf::get_fzf_pane_cmd;
+use utils::{fzf::get_fzf_pane_cmd, message::MSG_CLIENT_ID_ARG};
 use zellij_tile::{
     prelude::{CommandToRun, PipeMessage},
     shim::{get_plugin_ids, run_command},

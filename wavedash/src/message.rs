@@ -1,12 +1,10 @@
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use utils::fzf::parse_fzf_index;
+use utils::{fzf::parse_fzf_index, message::MSG_CLIENT_ID_ARG};
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
     shim::{new_tabs_with_layout, switch_tab_to},
 };
-
-pub(crate) const MSG_CLIENT_ID_ARG: &str = "picker_id";
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
 pub(crate) enum MessageType {
