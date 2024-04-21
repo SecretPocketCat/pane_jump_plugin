@@ -48,8 +48,8 @@ impl PluginState {
                             }
                         }
                         MessageType::OpenProject => {
-                            // todo: get cwd
-                            new_tabs_with_layout(&self.layout("/home/spc/projects/"));
+                            // todo
+                            // new_tabs_with_layout(&self.layout("/home/spc/projects/"));
                         }
                         MessageType::FocusProject => {
                             if let Some(idx) = parse_fzf_index(&payload) {

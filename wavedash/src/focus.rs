@@ -20,7 +20,8 @@ impl PluginState {
                     && p.is_floating == proj.floating
                     && 
                         // not the current focused pane 
-                        proj.current_focus != PaneFocus::from(*p)
+                        (proj.current_focus.is_none() ||
+                        proj.current_focus.as_ref().is_some_and(|f| f != &PaneFocus::from(*p)))
             })
             .cloned()
     }
@@ -29,9 +30,9 @@ impl PluginState {
         let focus: PaneFocus = focused_pane.into();
         self.handle_focus_change(focus.clone());
         let proj = self.active_project_mut();
-        proj.current_focus = focus;
+        proj.current_focus = Some(focus.clone());
         if let Some(id) = proj.keybind_panes.get(&KeybindPane::StatusPaneDash) {
-            if id != &proj.current_focus.id() {
+            if id != &focus.id() {
                 // reset dash pane to refresh fzf list
                 // todo: might need a more general approach for all fzf & other refreshable panes
                 id.close();
@@ -41,6 +42,8 @@ impl PluginState {
     }
 
     pub(crate) fn focus_editor_pane(&self) {
-        self.active_project().editor_pane_id.focus();
+        if let Some(id) = self.active_project().editor_pane_id {
+            id.focus();
+        }
     }
 }

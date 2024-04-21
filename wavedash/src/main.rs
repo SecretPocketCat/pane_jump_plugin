@@ -8,7 +8,6 @@ use zellij_tile::prelude::*;
 
 mod command_queue;
 mod focus;
-mod init;
 mod input;
 mod message;
 mod pane;
@@ -16,17 +15,23 @@ mod project;
 
 const PLUGIN_NAME: &str = "wavedash";
 
-struct ProjectTab {
+pub(crate) struct ProjectTab {
     title: String,
-    editor_pane_id: PaneId,
+    editor_pane_id: Option<PaneId>,
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
-    current_focus: PaneFocus,
+    current_focus: Option<PaneFocus>,
     all_focused_panes: Vec<PaneInfo>,
     status_panes: IndexMap<PaneId, String>,
     terminal_panes: IndexMap<PaneId, String>,
     keybind_panes: HashMap<KeybindPane, PaneId>,
     spawned_extra_term_count: usize,
+}
+
+impl ProjectTab {
+    pub(crate) fn initialized(&self) -> bool {
+        self.editor_pane_id.is_some()
+    }
 }
 
 struct PluginState {
@@ -35,7 +40,12 @@ struct PluginState {
     plugin_id: PaneId,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
-    new_tab_layout: String,
+}
+
+impl PluginState {
+    pub(crate) fn project_uninit(&self) -> bool {
+        !self.projects.contains_key(&self.tab)
+    }
 }
 
 // there's a bunch of sentinel values, but those are part of the init state to make workind with those more ergonomic as those fields should be always set after init
@@ -47,7 +57,6 @@ impl Default for PluginState {
             plugin_id: PaneId::Plugin(0),
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),
-            new_tab_layout: Default::default(),
         }
     }
 }
@@ -69,7 +78,6 @@ impl ZellijPlugin for PluginState {
             EventType::TabUpdate,
             EventType::Timer,
             EventType::RunCommandResult,
-            EventType::CustomMessage,
         ]);
     }
 
@@ -81,11 +89,6 @@ impl ZellijPlugin for PluginState {
             Event::RunCommandResult(exit_code, stdout, stderr, _ctx) => {
                 self.handle_command_result(exit_code, stdout, stderr)
             }
-            Event::CustomMessage(message, payload) => {
-                // if message == "session_layout" {
-                //     self.set_new_tab_layout(Self::format_layout(payload));
-                // }
-            }
             _ => unimplemented!("{event:?}"),
         }
 
@@ -93,6 +96,11 @@ impl ZellijPlugin for PluginState {
     }
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
+        if !self.project_uninit() {
+            eprintln!("Tab [{}] not initialized yet", self.tab);
+            return false;
+        }
+
         self.handle_pipe_message(pipe_message)
     }
 }
