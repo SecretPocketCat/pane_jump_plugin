@@ -63,9 +63,10 @@ impl PluginState {
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
             self.active_project_mut().all_focused_panes =
                 tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
-            self.check_focus_change();
 
             if *i == self.tab {
+                self.check_focus_change();
+
                 for p in tab_panes {
                     let id = PaneId::from(p);
 
