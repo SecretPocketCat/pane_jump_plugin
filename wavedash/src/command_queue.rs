@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use tracing::warn;
 use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
 use zellij_tile::shim::{set_timeout, write_chars};
 
@@ -99,10 +100,10 @@ impl PluginState {
         stderr: Vec<u8>,
     ) {
         if exit_code.is_some_and(|c| c != 0) {
-            eprintln!(
-                "Command has failed - exit code: '{}', err: {}",
-                exit_code.unwrap(),
-                String::from_utf8_lossy(&stderr)
+            warn!(
+                code=exit_code.unwrap(),
+                stderr=?String::from_utf8_lossy(&stderr),
+                "Command has failed",
             );
             return;
         }

@@ -131,7 +131,7 @@ impl ZellijPlugin for PluginState {
                 let name = &cwd;
                 // close the in-place fzf pane
                 close_focus();
-                new_tabs_with_layout(&wavedash_template(&cwd, &name, true));
+                new_tabs_with_layout(&wavedash_template(&cwd, name, true));
                 self.status = PluginStatus::Picked;
             } else {
                 // replace cancelled fzf with a new one

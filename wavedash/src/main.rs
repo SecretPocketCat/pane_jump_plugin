@@ -2,6 +2,8 @@ use command_queue::CommandQueue;
 use indexmap::IndexMap;
 use input::KeybindPane;
 use std::collections::{BTreeMap, HashMap};
+use tracing::{info, instrument, warn};
+use tracing_subscriber::{fmt, prelude::*};
 use utils::pane::{PaneFocus, PaneId};
 use uuid::Uuid;
 use zellij_tile::prelude::*;
@@ -71,6 +73,11 @@ impl Default for PluginState {
 register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
     fn load(&mut self, _configuration: BTreeMap<String, String>) {
+        let appender = tracing_appender::rolling::hourly("/host/log", "log");
+        tracing_subscriber::registry()
+            .with(fmt::layer().with_writer(appender))
+            .init();
+
         self.plugin_id = PaneId::new(get_plugin_ids().plugin_id, true);
         show_self(true);
         request_permission(&[
@@ -86,10 +93,10 @@ impl ZellijPlugin for PluginState {
             EventType::Timer,
             EventType::RunCommandResult,
         ]);
-
-        eprintln!("Hello plugin startup '{:?}'", self.msg_client_id);
+        info!(plugin_id=?self.plugin_id, msg_client_id=?self.msg_client_id, "Wavedash plugin load");
     }
 
+    #[instrument(skip(self))]
     fn update(&mut self, event: Event) -> bool {
         match event {
             Event::TabUpdate(tabs) => {
@@ -110,7 +117,7 @@ impl ZellijPlugin for PluginState {
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         if self.project_uninit() {
-            eprintln!("Tab [{:?}] not initialized yet", self.tab,);
+            warn!(tab = self.tab, "Tab not initialized yet");
             return false;
         }
 

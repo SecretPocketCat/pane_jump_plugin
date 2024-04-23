@@ -1,6 +1,7 @@
 use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState, PLUGIN_NAME};
 
 use std::convert::{TryFrom, TryInto};
+use tracing::{debug, error};
 use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
@@ -84,7 +85,8 @@ impl PluginState {
                     MessageKeybind::OpenProject => {
                         // run cmd to find git repos
                         let cwd = get_plugin_ids().initial_cwd;
-                        run_find_repos_command(&*cwd.to_string_lossy());
+                        // run_find_repos_command(&*cwd.to_string_lossy());
+                        run_find_repos_command("/home/spc/projects");
                     }
                     MessageKeybind::FocusEditorPane => self.focus_editor_pane(),
                     MessageKeybind::HxOpenFile => {
@@ -122,7 +124,7 @@ impl PluginState {
                     | MessageKeybind::Git
                     | MessageKeybind::K9s => {
                         let keybind_pane: KeybindPane = keybind.try_into().unwrap();
-                        eprintln!("Triggered keybindpane {keybind_pane:?}");
+                        debug!(?keybind_pane, "Triggered keybindpane");
                         if let Some(pane_id) = self
                             .active_project()
                             .unwrap()
@@ -144,7 +146,7 @@ impl PluginState {
                 }
             }
             Err(_) => {
-                eprintln!("Unknown keybind pipe name for message {pipe_message:?}");
+                error!(?pipe_message, "Unknown keybind pipe name");
             }
         }
     }

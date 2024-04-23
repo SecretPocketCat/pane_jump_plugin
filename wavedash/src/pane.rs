@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use tracing::{debug, info};
 use utils::{pane::PaneId, PROJECT_PICKER_PLUGIN_NAME};
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
@@ -47,11 +48,9 @@ impl PluginState {
                     hide_self();
                 }
 
-                eprintln!(
-                    "New project '{}', position: {}, tab_keys: {:?}",
-                    tab.name,
-                    tab.position,
-                    self.projects.keys()
+                info!(
+                    tab.name,tab.position,project_keys=?self.projects.keys(),
+                    "New project",
                 );
 
                 self.projects.insert(
@@ -68,12 +67,9 @@ impl PluginState {
                     },
                 );
             } else if tab.active {
-                eprintln!(
-                    "Changing active tab {:?}, pos: {}, i: {}, tab_keys: {:?}",
-                    tab.name,
-                    tab.position,
-                    i,
-                    self.projects.keys()
+                debug!(
+                    tab.name, tab.position, i, proj_keys=?self.projects.keys(),
+                    "Changing active tab",
                 );
                 self.tab = Some(tab.name.clone());
                 let proj = self.active_project_mut().unwrap();
@@ -100,7 +96,7 @@ impl PluginState {
             .projects
             .get_index_of(self.tab.as_ref().unwrap())
             .unwrap();
-        eprintln!("handling pane updates - tab_i: {tab_i}");
+        debug!(tab_i, "handling pane updates");
 
         // todo: just active tab
         for (i, tab_panes) in panes.iter() {
@@ -108,7 +104,7 @@ impl PluginState {
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
 
             if *i == tab_i {
-                eprintln!("Updating panes from focused tab '{:?}', {tab_i}", self.tab);
+                debug!(self.tab, tab_i, "Updating panes from focused tab");
                 let focused_panes: Vec<_> =
                     tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
                 self.check_focus_change(&focused_panes);
@@ -119,9 +115,10 @@ impl PluginState {
                     if self.active_project().unwrap().uninit() && p.title == "editor" {
                         // todo: this is somehow incorrect and the editor_pane_id is shifted 1 tab/project over
                         // seems to happen when closing tabs - even the first tab (open project) causes this
-                        eprintln!(
-                            "Setting editor pane '{id:?}' to for tab {}",
-                            self.active_project().unwrap().title
+                        debug!(
+                            ?id,
+                            tab = self.active_project().unwrap().title,
+                            "Setting editor pane",
                         );
                         self.active_project_mut().unwrap().editor_pane_id = Some(id);
                     }
@@ -135,7 +132,7 @@ impl PluginState {
                             .find(|(_, v)| **v == id)
                             .map(|(k, v)| (*k, *v))
                         {
-                            eprintln!("Removing keybind pane: {keybind_pane:?}, {id:?}");
+                            debug!(?keybind_pane, ?id, "Removing keybind pane");
                             self.active_project_mut()
                                 .unwrap()
                                 .keybind_panes
