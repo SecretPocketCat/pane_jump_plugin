@@ -4,11 +4,10 @@ use utils::{
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
     template::wavedash_template,
+    PROJECT_PICKER_PLUGIN_NAME,
 };
 use uuid::Uuid;
 use zellij_tile::prelude::*;
-
-const PLUGIN_NAME: &str = "project_picker";
 
 #[derive(Default)]
 enum PluginStatus {
@@ -40,7 +39,7 @@ impl PluginState {
     fn show_project_selection(&self) {
         open_command_pane_in_place(get_fzf_pane_cmd(
             self.projects.iter().map(String::as_str),
-            PLUGIN_NAME,
+            PROJECT_PICKER_PLUGIN_NAME,
             "pick_project",
             self.msg_client_id,
             false,
@@ -81,13 +80,11 @@ impl ZellijPlugin for PluginState {
                     self.status = PluginStatus::Picking;
                 }
                 PluginStatus::Picking => {
-                    if let Some(pane) = panes
-                        .values()
-                        .flatten()
-                        .find(|p| p.terminal_command.is_some() && p.title != PLUGIN_NAME)
-                    {
+                    if let Some(pane) = panes.values().flatten().find(|p| {
+                        p.terminal_command.is_some() && p.title != PROJECT_PICKER_PLUGIN_NAME
+                    }) {
                         let id = PaneId::from(pane);
-                        id.rename(PLUGIN_NAME);
+                        id.rename(PROJECT_PICKER_PLUGIN_NAME);
                     }
                 }
                 PluginStatus::Picked => {}
@@ -127,10 +124,11 @@ impl ZellijPlugin for PluginState {
             {
                 // todo: the name should be the cwd without the workspace root
                 // have to impl to figure out the code to get the workspace path
-                let name = cwd.replace(
-                    &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
-                    "",
-                );
+                // let name = cwd.replace(
+                //     &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
+                //     "",
+                // );
+                let name = &cwd;
                 // close the in-place fzf pane
                 close_focus();
                 new_tabs_with_layout(&wavedash_template(&cwd, &name, true));

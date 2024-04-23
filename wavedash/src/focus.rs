@@ -4,14 +4,18 @@ use zellij_tile::prelude::PaneInfo;
 use crate::{input::KeybindPane,  PluginState}; 
 
 impl PluginState {
-    pub(crate) fn check_focus_change(&mut self) {
-        if let Some(focused_pane) = self.has_focus_changed(&self.active_project().all_focused_panes) {
+    pub(crate) fn check_focus_change(&mut self, tab_panes: &[PaneInfo]) {
+        if let Some(focused_pane) = self.has_focus_changed(tab_panes) {
             self.on_focus_change(&focused_pane);
         }
     }
 
-    pub(crate) fn has_focus_changed(&self, tab_panes: &[PaneInfo]) -> Option<PaneInfo> {
-        let proj = self.active_project();
+    fn has_focus_changed(&self, tab_panes: &[PaneInfo]) -> Option<PaneInfo> {
+        if self.project_uninit() {
+            return None;    
+        }
+        
+        let proj = self.active_project().unwrap();
         tab_panes
             .iter()
             .find(|p| {
@@ -26,10 +30,10 @@ impl PluginState {
             .cloned()
     }
 
-    pub(crate) fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
+    fn on_focus_change(&mut self, focused_pane: &PaneInfo) {
         let focus: PaneFocus = focused_pane.into();
         self.handle_focus_change(focus.clone());
-        let proj = self.active_project_mut();
+        let proj = self.active_project_mut().unwrap();
         proj.current_focus = Some(focus.clone());
         if let Some(id) = proj.keybind_panes.get(&KeybindPane::StatusPaneDash) {
             if id != &focus.id() {
@@ -42,7 +46,8 @@ impl PluginState {
     }
 
     pub(crate) fn focus_editor_pane(&self) {
-        if let Some(id) = self.active_project().editor_pane_id {
+        if let Some(id) = self.active_project().and_then(|p| p.editor_pane_id) {
+            eprintln!("Focusing pane - pane: {id:?}, tab {:?}, {}", self.tab, self.active_project().unwrap().title);
             id.focus();
         }
     }

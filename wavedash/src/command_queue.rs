@@ -10,6 +10,7 @@ pub(crate) enum QueuedTimerCommand {
     FocusEditor,
     #[allow(dead_code)]
     ExtraDelay(f64),
+    ProcessQueuedTabUpdate,
 }
 
 #[allow(clippy::enum_variant_names)]
@@ -56,11 +57,11 @@ impl CommandQueue {
     pub(crate) fn set_timer(&mut self, extra_delay: f64) {
         if !self.timer_set {
             self.timer_set = true;
-            set_timeout(0.05 + extra_delay);
+            set_timeout(0.03 + extra_delay);
         }
     }
 
-    pub(crate) fn dequeue_timer_command(&mut self) -> Option<QueuedTimerCommand> {
+    fn dequeue_timer_command(&mut self) -> Option<QueuedTimerCommand> {
         self.timer_set = false;
         let res = self.timer_queue.pop_front();
         if !self.timer_queue.is_empty() {
@@ -86,6 +87,7 @@ impl PluginState {
                 QueuedTimerCommand::WriteBytes(bytes) => zellij_tile::shim::write(bytes),
                 QueuedTimerCommand::FocusEditor => self.focus_editor_pane(),
                 QueuedTimerCommand::ExtraDelay(_) => {}
+                QueuedTimerCommand::ProcessQueuedTabUpdate => self.handle_queued_tab_update(),
             }
         }
     }
@@ -116,11 +118,16 @@ impl PluginState {
     }
 
     pub(crate) fn handle_focus_change(&mut self, focus: PaneFocus) {
+        if self.project_uninit() {
+            panic!("Attempted to processe focus queue when project is not initialized");
+        }
+
         let id = focus.id();
         while let Some(item) = self.command_queue.dequeue_focus_command() {
             match item {
                 QueuedFocusCommand::MarkKeybindPane(keybind_pane) => {
                     self.active_project_mut()
+                        .unwrap()
                         .keybind_panes
                         .entry(keybind_pane)
                         .or_insert(id);
@@ -130,6 +137,7 @@ impl PluginState {
                 }
                 QueuedFocusCommand::MarkTerminalPane(title) => {
                     self.active_project_mut()
+                        .unwrap()
                         .terminal_panes
                         .entry(id)
                         .or_insert(title);

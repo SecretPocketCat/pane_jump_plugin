@@ -1,4 +1,6 @@
-use utils::pane::PaneId;
+use std::collections::HashSet;
+
+use utils::{pane::PaneId, PROJECT_PICKER_PLUGIN_NAME};
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
     shim::{get_plugin_ids, hide_self, open_command_pane_floating, open_terminal_floating},
@@ -23,60 +25,111 @@ impl PluginState {
         }
     }
 
-    pub(crate) fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
-        if let Some(tab) = tabs.iter().find(|t| t.active) {
-            self.tab = tab.position;
+    pub(crate) fn handle_queued_tab_update(&mut self) {
+        if let Some(tab_update) = self.queued_tab_update.take() {
+            self.handle_tab_update(&tab_update);
+        }
+    }
+
+    fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
+        for (i, tab) in tabs.iter().enumerate() {
+            // todo: looks like removing tabs causes the tabs to shift
+            // closing projects/tabs should go through a custom function that will shift projects around
+
+            if tab.name == PROJECT_PICKER_PLUGIN_NAME {
+                continue;
+            }
+
             let floating = tab.are_floating_panes_visible;
-            if self.project_uninit() {
-                hide_self();
-                self.projects.insert(
+            if !self.projects.contains_key(&tab.name) {
+                if self.projects.is_empty() {
+                    // hide wavedash plugin (shown initially to confirm permissions)
+                    hide_self();
+                }
+
+                eprintln!(
+                    "New project '{}', position: {}, tab_keys: {:?}",
+                    tab.name,
                     tab.position,
+                    self.projects.keys()
+                );
+
+                self.projects.insert(
+                    tab.name.clone(),
                     ProjectTab {
                         title: tab.name.clone(),
                         editor_pane_id: None,
                         floating,
                         current_focus: None,
-                        all_focused_panes: Default::default(),
                         status_panes: Default::default(),
                         terminal_panes: Default::default(),
                         keybind_panes: Default::default(),
                         spawned_extra_term_count: 0,
                     },
                 );
-            } else {
-                let proj = self.active_project_mut();
+            } else if tab.active {
+                eprintln!(
+                    "Changing active tab {:?}, pos: {}, i: {}, tab_keys: {:?}",
+                    tab.name,
+                    tab.position,
+                    i,
+                    self.projects.keys()
+                );
+                self.tab = Some(tab.name.clone());
+                let proj = self.active_project_mut().unwrap();
                 if proj.floating != floating {
                     proj.floating = floating;
-                    self.check_focus_change();
                 }
             }
         }
+
+        let titles: HashSet<_> = tabs.iter().map(|t| &t.name).collect();
+        self.projects.retain(|key, _| titles.contains(key));
+
+        if let Some(pane_update) = self.queued_pane_update.take() {
+            self.handle_pane_update(pane_update);
+        }
     }
 
-    pub(crate) fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
-        for (i, tab_panes) in panes.iter() {
-            if self.project_uninit() {
-                continue;
-            }
+    fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
+        if self.project_uninit() {
+            return;
+        }
 
+        let tab_i = self
+            .projects
+            .get_index_of(self.tab.as_ref().unwrap())
+            .unwrap();
+        eprintln!("handling pane updates - tab_i: {tab_i}");
+
+        // todo: just active tab
+        for (i, tab_panes) in panes.iter() {
             // collect all focused panes
             // this is used due to possible race conditions with `TabUpdate` which is used to update whether floating panes are on top
-            self.active_project_mut().all_focused_panes =
-                tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
 
-            if *i == self.tab {
-                self.check_focus_change();
+            if *i == tab_i {
+                eprintln!("Updating panes from focused tab '{:?}', {tab_i}", self.tab);
+                let focused_panes: Vec<_> =
+                    tab_panes.iter().filter(|p| p.is_focused).cloned().collect();
+                self.check_focus_change(&focused_panes);
 
                 for p in tab_panes {
                     let id = PaneId::from(p);
 
-                    if self.active_project().uninit() && p.title == "editor" {
-                        self.active_project_mut().editor_pane_id = Some(id);
+                    if self.active_project().unwrap().uninit() && p.title == "editor" {
+                        // todo: this is somehow incorrect and the editor_pane_id is shifted 1 tab/project over
+                        // seems to happen when closing tabs - even the first tab (open project) causes this
+                        eprintln!(
+                            "Setting editor pane '{id:?}' to for tab {}",
+                            self.active_project().unwrap().title
+                        );
+                        self.active_project_mut().unwrap().editor_pane_id = Some(id);
                     }
 
                     if p.terminal_command.is_some() && p.exit_status.is_some() {
                         if let Some((keybind_pane, id)) = self
                             .active_project()
+                            .unwrap()
                             .keybind_panes
                             .iter()
                             .find(|(_, v)| **v == id)
@@ -84,6 +137,7 @@ impl PluginState {
                         {
                             eprintln!("Removing keybind pane: {keybind_pane:?}, {id:?}");
                             self.active_project_mut()
+                                .unwrap()
                                 .keybind_panes
                                 .remove(&keybind_pane);
                             id.close();
@@ -104,6 +158,7 @@ impl PluginState {
 
                 for pane in status_panes {
                     self.active_project_mut()
+                        .unwrap()
                         .status_panes
                         .entry(pane.into())
                         .and_modify(|t| {

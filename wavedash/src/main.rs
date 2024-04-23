@@ -22,7 +22,6 @@ pub(crate) struct ProjectTab {
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
     current_focus: Option<PaneFocus>,
-    all_focused_panes: Vec<PaneInfo>,
     status_panes: IndexMap<PaneId, String>,
     terminal_panes: IndexMap<PaneId, String>,
     keybind_panes: HashMap<KeybindPane, PaneId>,
@@ -36,16 +35,21 @@ impl ProjectTab {
 }
 
 struct PluginState {
-    tab: usize,
-    projects: IndexMap<usize, ProjectTab>,
+    tab: Option<String>,
+    projects: IndexMap<String, ProjectTab>,
     plugin_id: PaneId,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
+    queued_pane_update: Option<PaneManifest>,
+    queued_tab_update: Option<Vec<TabInfo>>,
 }
 
 impl PluginState {
     pub(crate) fn project_uninit(&self) -> bool {
-        !self.projects.contains_key(&self.tab)
+        !self
+            .tab
+            .as_ref()
+            .is_some_and(|t| self.projects.contains_key(t))
     }
 }
 
@@ -53,11 +57,13 @@ impl PluginState {
 impl Default for PluginState {
     fn default() -> Self {
         Self {
-            tab: 0,
+            tab: None,
             projects: Default::default(),
             plugin_id: PaneId::Plugin(0),
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),
+            queued_pane_update: Default::default(),
+            queued_tab_update: Default::default(),
         }
     }
 }
@@ -80,16 +86,22 @@ impl ZellijPlugin for PluginState {
             EventType::Timer,
             EventType::RunCommandResult,
         ]);
+
+        eprintln!("Hello plugin startup '{:?}'", self.msg_client_id);
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
-            Event::TabUpdate(tabs) => self.handle_tab_update(&tabs),
-            Event::PaneUpdate(panes) => self.handle_pane_update(panes),
+            Event::TabUpdate(tabs) => {
+                self.queued_tab_update = Some(tabs);
+                self.command_queue
+                    .queue_timer_command(command_queue::QueuedTimerCommand::ProcessQueuedTabUpdate);
+            }
             Event::Timer(_) => self.handle_timer(),
             Event::RunCommandResult(exit_code, stdout, stderr, _ctx) => {
                 self.handle_command_result(exit_code, stdout, stderr)
             }
+            Event::PaneUpdate(pane_update) => self.queued_pane_update = Some(pane_update.clone()),
             _ => unimplemented!("{event:?}"),
         }
 
@@ -98,7 +110,7 @@ impl ZellijPlugin for PluginState {
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         if self.project_uninit() {
-            eprintln!("Tab [{}] not initialized yet", self.tab,);
+            eprintln!("Tab [{:?}] not initialized yet", self.tab,);
             return false;
         }
 

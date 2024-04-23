@@ -7,7 +7,7 @@ use utils::{
 };
 use zellij_tile::{
     prelude::{CommandToRun, PipeMessage},
-    shim::{get_plugin_ids, run_command},
+    shim::get_plugin_ids,
 };
 
 pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
@@ -102,7 +102,7 @@ impl PluginState {
                         ]);
                     }
                     MessageKeybind::NewTerminal => {
-                        let proj = self.active_project_mut();
+                        let proj = self.active_project_mut().unwrap();
                         Self::open_floating_pane(None);
                         proj.spawned_extra_term_count += 1;
                         let title = format!("Terminal #{}", proj.spawned_extra_term_count);
@@ -122,8 +122,12 @@ impl PluginState {
                     | MessageKeybind::Git
                     | MessageKeybind::K9s => {
                         let keybind_pane: KeybindPane = keybind.try_into().unwrap();
-                        if let Some(pane_id) =
-                            self.active_project().keybind_panes.get(&keybind_pane)
+                        eprintln!("Triggered keybindpane {keybind_pane:?}");
+                        if let Some(pane_id) = self
+                            .active_project()
+                            .unwrap()
+                            .keybind_panes
+                            .get(&keybind_pane)
                         {
                             pane_id.focus();
                         } else {
@@ -189,10 +193,11 @@ impl PluginState {
                 PLUGIN_NAME,
                 MessageType::FocusProject.as_ref(),
                 self.msg_client_id,
-                true,
+                false,
             )),
             KeybindPane::StatusPaneDash => Some(get_fzf_pane_cmd(
                 self.active_project()
+                    .unwrap()
                     .status_panes
                     .values()
                     .map(String::as_str),
@@ -203,6 +208,7 @@ impl PluginState {
             )),
             KeybindPane::TerminalPaneDash => Some(get_fzf_pane_cmd(
                 self.active_project()
+                    .unwrap()
                     .terminal_panes
                     .values()
                     .map(String::as_str),

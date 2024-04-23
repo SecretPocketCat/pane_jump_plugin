@@ -47,21 +47,31 @@ impl PluginState {
                         }
                         MessageType::OpenProject => {
                             if let Some(cwd) = payload.lines().next().map(|l| l.to_string()) {
-                                new_tabs_with_layout(&wavedash_template(&cwd, &cwd, false));
+                                match self.projects.get_index_of(&cwd) {
+                                    Some(i) => switch_tab_to(i as u32),
+                                    None => {
+                                        new_tabs_with_layout(&wavedash_template(&cwd, &cwd, false));
+                                    }
+                                }
                             }
 
                             // close fzf pane
                             close_focus();
                         }
                         MessageType::FocusProject => {
-                            if let Some(idx) = parse_fzf_index(&payload) {
-                                switch_tab_to(idx);
+                            if let Some(tab_title) = payload.lines().next() {
+                                if let Some(idx) = self.projects.get_index_of(tab_title) {
+                                    switch_tab_to(idx as u32);
+                                }
                             }
                         }
                         MessageType::FocusStatusPane => {
                             if let Some(idx) = parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) =
-                                    self.active_project().status_panes.get_index(idx - 1)
+                                if let Some((id, _)) = self
+                                    .active_project()
+                                    .unwrap()
+                                    .status_panes
+                                    .get_index(idx - 1)
                                 {
                                     id.focus();
                                     self.command_queue
@@ -71,8 +81,11 @@ impl PluginState {
                         }
                         MessageType::FocusTerminalPane => {
                             if let Some(idx) = parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) =
-                                    self.active_project().terminal_panes.get_index(idx - 1)
+                                if let Some((id, _)) = self
+                                    .active_project()
+                                    .unwrap()
+                                    .terminal_panes
+                                    .get_index(idx - 1)
                                 {
                                     id.focus();
                                 }
