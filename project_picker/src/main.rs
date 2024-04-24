@@ -70,7 +70,7 @@ impl ZellijPlugin for PluginState {
                 if let PluginStatus::Picked = self.status {
                     if tabs.len() > 1 {
                         // last pane, so this will close the tab
-                        close_self();
+                        // close_self();
                     }
                 }
             }
