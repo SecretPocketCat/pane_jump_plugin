@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use tracing::warn;
+use tracing::{instrument, warn};
 use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
 use zellij_tile::shim::{set_timeout, write_chars};
 
@@ -93,6 +93,7 @@ impl PluginState {
         }
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn handle_command_result(
         &mut self,
         exit_code: Option<i32>,

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use tracing::{debug, info};
+use tracing::{debug, info, instrument, warn};
 use utils::{pane::PaneId, PROJECT_PICKER_PLUGIN_NAME};
 use zellij_tile::{
     prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
@@ -32,7 +32,25 @@ impl PluginState {
         }
     }
 
+    #[instrument(skip_all)]
     fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
+        // todo: this is invoked with an invalid active tab even though the tab has not changed
+        // zellij bug?
+        let panes: Vec<_> = tabs
+            .iter()
+            .map(|t| {
+                (
+                    &t.name,
+                    t.active,
+                    t.position,
+                    self.projects
+                        .get_index(t.position)
+                        .and_then(|(_, t)| t.editor_pane_id),
+                )
+            })
+            .collect();
+        warn!(?panes, "panes");
+
         for (i, tab) in tabs.iter().enumerate() {
             // todo: looks like removing tabs causes the tabs to shift
             // closing projects/tabs should go through a custom function that will shift projects around
@@ -71,11 +89,10 @@ impl PluginState {
                     tab.name, tab.position, i, proj_keys=?self.projects.keys(),
                     "Changing active tab",
                 );
+
                 self.tab = Some(tab.name.clone());
                 let proj = self.active_project_mut().unwrap();
-                if proj.floating != floating {
-                    proj.floating = floating;
-                }
+                proj.floating = floating;
             }
         }
 
@@ -87,6 +104,7 @@ impl PluginState {
         }
     }
 
+    #[instrument(skip_all)]
     fn handle_pane_update(&mut self, PaneManifest { panes }: PaneManifest) {
         if self.project_uninit() {
             return;

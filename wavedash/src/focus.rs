@@ -1,4 +1,4 @@
-use tracing::debug;
+use tracing::{debug, instrument};
 use utils::pane::PaneFocus;
 use zellij_tile::prelude::PaneInfo;
 
@@ -46,6 +46,7 @@ impl PluginState {
         }
     }
 
+    #[instrument(skip_all)]
     pub(crate) fn focus_editor_pane(&self) {
         if let Some(id) = self.active_project().and_then(|p| p.editor_pane_id) {
             debug!(tab=self.tab, pane_id=?id, "Focusing pane");

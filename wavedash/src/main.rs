@@ -72,8 +72,9 @@ impl Default for PluginState {
 
 register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
+    #[instrument(skip(self))]
     fn load(&mut self, _configuration: BTreeMap<String, String>) {
-        let appender = tracing_appender::rolling::hourly("/host/log", "log");
+        let appender = tracing_appender::rolling::never("/host/target", "log");
         tracing_subscriber::registry()
             .with(fmt::layer().with_writer(appender))
             .init();
@@ -115,6 +116,7 @@ impl ZellijPlugin for PluginState {
         false
     }
 
+    #[instrument(skip(self))]
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         if self.project_uninit() {
             warn!(tab = self.tab, "Tab not initialized yet");

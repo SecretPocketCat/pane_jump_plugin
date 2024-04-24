@@ -1,7 +1,7 @@
 use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState, PLUGIN_NAME};
 
 use std::convert::{TryFrom, TryInto};
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
@@ -78,6 +78,7 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 }
 
 impl PluginState {
+    #[instrument(skip(self))]
     pub(crate) fn handle_keybind_message(&mut self, pipe_message: PipeMessage) {
         match pipe_message.name.parse::<MessageKeybind>() {
             Ok(keybind) => {
