@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use tracing::{instrument, warn};
 use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
-use zellij_tile::shim::{set_timeout, write_chars};
+use zellij_tile::shim::{set_timeout, switch_to_input_mode, write_chars};
 
 use crate::{input::KeybindPane, message::MessageType, PluginState, PLUGIN_NAME};
 
@@ -145,11 +145,7 @@ impl PluginState {
                         .or_insert(title);
                 }
                 QueuedFocusCommand::TriggerRenameInput => {
-                    // self.command_queue
-                    //     .queue_timer_command(QueuedTimerCommand::ExtraDelay(3.));
-                    // todo: alt+p
-                    // self.command_queue.queue_write_bytes(vec![0x1b, 112]);
-                    // self.command_queue.queue_write_string("r".to_string());
+                    switch_to_input_mode(&zellij_tile::prelude::InputMode::RenamePane);
                 }
             }
         }

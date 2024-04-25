@@ -113,7 +113,7 @@ impl PluginState {
                             QueuedFocusCommand::MarkTerminalPane(title.clone()),
                         );
                         self.command_queue
-                            .queue_focus_command(QueuedFocusCommand::RenamePane(title));
+                            .queue_focus_command(QueuedFocusCommand::RenamePane("".to_string()));
                         self.command_queue
                             .queue_focus_command(QueuedFocusCommand::TriggerRenameInput);
                     }
