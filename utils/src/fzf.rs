@@ -7,7 +7,7 @@ use crate::message::MSG_CLIENT_ID_ARG;
 
 pub fn get_fzf_pane_cmd<'a>(
     options: impl Iterator<Item = &'a str>,
-    plugin_name: impl Into<&'a str>,
+    // plugin_name: impl Into<&'a str>,
     message_type: impl Into<&'a str>,
     message_client_id: Uuid,
     use_index: bool,
@@ -22,8 +22,7 @@ pub fn get_fzf_pane_cmd<'a>(
     };
 
     let cmd = format!(
-        "printf '{opts}' | {fzf_cmd} | zellij pipe --plugin {} --name {} --args '{MSG_CLIENT_ID_ARG}={message_client_id}'",
-        plugin_name.into(),
+        "printf '{opts}' | {fzf_cmd} | zellij pipe  --name {} --args '{MSG_CLIENT_ID_ARG}={message_client_id}'",
         message_type.into());
     CommandToRun {
         // path: "fish".into(),
@@ -40,6 +39,7 @@ where
     payload.lines().next().and_then(|l| l.parse::<T>().ok())
 }
 
+// todo: look for project specific dirs or files like cargo.toml etc too
 pub fn run_find_repos_command<'a>(cwd: impl Into<&'a str>) {
     run_command(
         &[

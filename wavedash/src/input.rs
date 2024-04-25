@@ -193,7 +193,6 @@ impl PluginState {
             }
             KeybindPane::ProjectDash => Some(get_fzf_pane_cmd(
                 self.projects.values().map(|p| p.title.as_str()),
-                PLUGIN_NAME,
                 MessageType::FocusProject.as_ref(),
                 self.msg_client_id,
                 false,
@@ -204,7 +203,6 @@ impl PluginState {
                     .status_panes
                     .values()
                     .map(String::as_str),
-                PLUGIN_NAME,
                 MessageType::FocusStatusPane.as_ref(),
                 self.msg_client_id,
                 true,
@@ -215,7 +213,6 @@ impl PluginState {
                     .terminal_panes
                     .values()
                     .map(String::as_str),
-                PLUGIN_NAME,
                 MessageType::FocusTerminalPane.as_ref(),
                 self.msg_client_id,
                 true,

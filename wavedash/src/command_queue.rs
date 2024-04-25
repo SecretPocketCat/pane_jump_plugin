@@ -3,7 +3,7 @@ use tracing::{instrument, warn};
 use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
 use zellij_tile::shim::{set_timeout, switch_to_input_mode, write_chars};
 
-use crate::{input::KeybindPane, message::MessageType, PluginState, PLUGIN_NAME};
+use crate::{input::KeybindPane, message::MessageType, PluginState};
 
 pub(crate) enum QueuedTimerCommand {
     WriteString(String),
@@ -112,7 +112,6 @@ impl PluginState {
         // todo: insert keybind pane etc.
         Self::open_floating_pane(Some(get_fzf_pane_cmd(
             String::from_utf8_lossy(&stdout).lines(),
-            PLUGIN_NAME,
             MessageType::OpenProject.as_ref(),
             self.msg_client_id,
             false,
