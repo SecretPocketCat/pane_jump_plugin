@@ -55,14 +55,17 @@ impl PluginState {
     }
 
     fn pick_project(&mut self, cwd: &str) {
-        // todo: the name should be the cwd without the workspace root
-        // have to impl to figure out the code to get the workspace path
-        // let name = cwd.replace(
-        //     &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
-        //     "",
-        // );
-
-        new_tabs_with_layout(&wavedash_template(&cwd, &cwd, true));
+        let name = cwd.replace(
+            &self
+                .project_root
+                .as_ref()
+                .unwrap()
+                .root_path
+                .to_string_lossy()
+                .to_string(),
+            "",
+        );
+        new_tabs_with_layout(&wavedash_template(&cwd, &name, true));
         self.status = PluginStatus::Picked;
     }
 }
@@ -171,15 +174,14 @@ impl ZellijPlugin for PluginState {
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         if let PluginStatus::Picking(_) = self.status {
-            if pipe_message.payload.is_some()
-                && pipe_message
-                    .args
-                    .get(MSG_CLIENT_ID_ARG)
-                    .is_some_and(|guid| guid == &self.msg_client_id.to_string())
+            if pipe_message
+                .args
+                .get(MSG_CLIENT_ID_ARG)
+                .is_some_and(|guid| guid == &self.msg_client_id.to_string())
             {
                 if let Some(cwd) = pipe_message
                     .payload
-                    .unwrap()
+                    .unwrap_or_default()
                     .lines()
                     .next()
                     .map(|l| l.to_string())
