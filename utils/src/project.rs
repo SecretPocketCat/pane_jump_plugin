@@ -1,8 +1,12 @@
 use anyhow::bail;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     path::PathBuf,
 };
+
+pub const PROJECT_ROOT_RQST_MESSAGE_NAME: &str = "project_root";
+pub const PROJECT_ROOT_RESP_MESSAGE_NAME: &str = "project_root";
 
 #[derive(strum_macros::EnumString, Debug, PartialEq)]
 enum ConfigField {
@@ -16,7 +20,7 @@ enum ConfigField {
     TaskProject,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectRootConfiguration {
     pub root_path: PathBuf,
     pub extra_project_paths: Vec<PathBuf>,

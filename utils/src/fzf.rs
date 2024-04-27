@@ -7,7 +7,6 @@ use crate::message::MSG_CLIENT_ID_ARG;
 
 pub fn get_fzf_pane_cmd<'a>(
     options: impl Iterator<Item = &'a str>,
-    // plugin_name: impl Into<&'a str>,
     message_type: impl Into<&'a str>,
     message_client_id: Uuid,
     use_index: bool,

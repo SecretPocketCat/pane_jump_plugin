@@ -1,6 +1,9 @@
 use crate::{command_queue::QueuedTimerCommand, PluginState};
 
-use utils::{fzf::parse_fzf_index, message::MSG_CLIENT_ID_ARG, template::wavedash_template};
+use utils::{
+    fzf::parse_fzf_index, message::MSG_CLIENT_ID_ARG, project::PROJECT_ROOT_RESP_MESSAGE_NAME,
+    template::wavedash_template,
+};
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
     shim::{close_focus, new_tabs_with_layout, switch_tab_to},
@@ -93,6 +96,12 @@ impl PluginState {
                         }
                     }
                 }
+            }
+        } else if pipe_message.name == PROJECT_ROOT_RESP_MESSAGE_NAME {
+            if let Some(conf) = pipe_message.payload {
+                self.root_config = Some(
+                    serde_json::from_str(&conf).expect("Failed to deserialize project root config"),
+                );
             }
         }
 

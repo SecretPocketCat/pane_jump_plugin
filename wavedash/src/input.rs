@@ -1,15 +1,12 @@
-use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState, PLUGIN_NAME};
-
+use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState};
 use std::convert::{TryFrom, TryInto};
 use tracing::{debug, error, instrument};
 use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
+    DASH_PLUGIN_NAME,
 };
-use zellij_tile::{
-    prelude::{CommandToRun, PipeMessage},
-    shim::get_plugin_ids,
-};
+use zellij_tile::prelude::{CommandToRun, PipeMessage};
 
 pub(crate) const YAZI_CMD: &str = "yazi --chooser-file /dev/stdout";
 
@@ -84,10 +81,14 @@ impl PluginState {
             Ok(keybind) => {
                 match keybind {
                     MessageKeybind::OpenProject => {
-                        // run cmd to find git repos
-                        let cwd = get_plugin_ids().initial_cwd;
-                        // run_find_repos_command(&*cwd.to_string_lossy());
-                        run_find_repos_command("/home/spc/projects");
+                        run_find_repos_command(
+                            &*self
+                                .root_config
+                                .as_ref()
+                                .unwrap()
+                                .root_path
+                                .to_string_lossy(),
+                        );
                     }
                     MessageKeybind::FocusEditorPane => self.focus_editor_pane(),
                     MessageKeybind::HxOpenFile => {
@@ -219,7 +220,7 @@ impl PluginState {
             )),
             KeybindPane::FilePicker => {
                 let cmd = format!(
-                    "{YAZI_CMD} | zellij pipe --plugin {PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
+                    "{YAZI_CMD} | zellij pipe --plugin {DASH_PLUGIN_NAME} --name {} --args '{MSG_CLIENT_ID_ARG}={}'",
                     MessageType::OpenFile.as_ref(),
                     self.msg_client_id
                 );

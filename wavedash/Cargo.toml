@@ -21,3 +21,4 @@ utils = { path = "../utils" }
 tracing = "0.1.40"
 tracing-subscriber = { version="0.3.18", features=["env-filter"] }
 tracing-appender = "0.2.3"
+serde_json = { workspace = true }

@@ -4,7 +4,10 @@ use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
-    project::{parse_configuration, project_title, ProjectRootConfiguration},
+    project::{
+        parse_configuration, project_title, ProjectRootConfiguration,
+        PROJECT_ROOT_RESP_MESSAGE_NAME, PROJECT_ROOT_RQST_MESSAGE_NAME,
+    },
     template::wavedash_template,
     PROJECT_PICKER_PLUGIN_NAME,
 };
@@ -18,7 +21,7 @@ enum PluginStatus {
     #[default]
     Init,
     Picking(bool),
-    Picked,
+    Picked(bool),
     InvalidConfig(String),
 }
 
@@ -59,9 +62,8 @@ impl PluginState {
     fn pick_project(&mut self, cwd: &str) {
         let name = project_title(cwd, self.project_root.as_ref().unwrap().root_path.clone());
         let template = wavedash_template(&cwd, &name, true);
-        eprintln!("template\n{template}");
         new_tabs_with_layout(&template);
-        self.status = PluginStatus::Picked;
+        self.status = PluginStatus::Picked(false);
     }
 }
 
@@ -84,6 +86,7 @@ impl ZellijPlugin for PluginState {
                         PermissionType::ReadApplicationState,
                         PermissionType::ChangeApplicationState,
                         PermissionType::RunCommands,
+                        PermissionType::MessageAndLaunchOtherPlugins,
                     ]);
                     subscribe(&[EventType::PaneUpdate, EventType::RunCommandResult]);
                 }
@@ -168,34 +171,49 @@ impl ZellijPlugin for PluginState {
     }
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
-        if let PluginStatus::Picking(_) = self.status {
-            if pipe_message
-                .args
-                .get(MSG_CLIENT_ID_ARG)
-                .is_some_and(|guid| guid == &self.msg_client_id.to_string())
-            {
-                eprintln!("pick: {pipe_message:?}");
-                let cwd = pipe_message
-                    .payload
-                    .unwrap_or_default()
-                    .lines()
-                    .next()
-                    .and_then(|l| {
-                        l.parse::<usize>()
-                            .and_then(|i| Ok(self.projects_paths.get(i - 1)))
-                            .ok()
-                            .flatten()
-                    });
-                if let Some(cwd) = cwd {
-                    eprintln!("Picked cwd: {cwd}");
-                    self.pick_project(&cwd.clone());
-                } else {
-                    // replace cancelled fzf pane with a new one
-                    close_focus();
-                    self.status = PluginStatus::Picking(false);
-                    self.show_project_selection();
+        match self.status {
+            PluginStatus::Picking(_) => {
+                if pipe_message
+                    .args
+                    .get(MSG_CLIENT_ID_ARG)
+                    .is_some_and(|guid| guid == &self.msg_client_id.to_string())
+                {
+                    let cwd = pipe_message
+                        .payload
+                        .unwrap_or_default()
+                        .lines()
+                        .next()
+                        .and_then(|l| {
+                            l.parse::<usize>()
+                                .and_then(|i| Ok(self.projects_paths.get(i - 1)))
+                                .ok()
+                                .flatten()
+                        });
+                    if let Some(cwd) = cwd {
+                        self.pick_project(&cwd.clone());
+                    } else {
+                        // replace cancelled fzf pane with a new one
+                        close_focus();
+                        self.status = PluginStatus::Picking(false);
+                        self.show_project_selection();
+                    }
                 }
             }
+            PluginStatus::Picked(false) => {
+                if let (PROJECT_ROOT_RQST_MESSAGE_NAME, PipeSource::Plugin(target_plugin_id)) =
+                    (pipe_message.name.as_str(), pipe_message.source)
+                {
+                    self.status = PluginStatus::Picked(true);
+                    let msg = MessageToPlugin::new(PROJECT_ROOT_RESP_MESSAGE_NAME)
+                        .with_destination_plugin_id(target_plugin_id)
+                        .with_payload(
+                            serde_json::to_string(&self.project_root.clone().unwrap())
+                                .expect("Failed to serialize project root"),
+                        );
+                    pipe_message_to_plugin(msg);
+                }
+            }
+            _ => {}
         }
 
         false

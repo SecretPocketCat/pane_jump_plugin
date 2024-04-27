@@ -4,7 +4,10 @@ use input::KeybindPane;
 use std::collections::{BTreeMap, HashMap};
 use tracing::{info, instrument, warn};
 use tracing_subscriber::{fmt, prelude::*};
-use utils::pane::{PaneFocus, PaneId};
+use utils::{
+    pane::{PaneFocus, PaneId},
+    project::{ProjectRootConfiguration, PROJECT_ROOT_RESP_MESSAGE_NAME},
+};
 use uuid::Uuid;
 use zellij_tile::prelude::*;
 
@@ -14,8 +17,6 @@ mod input;
 mod message;
 mod pane;
 mod project;
-
-const PLUGIN_NAME: &str = "wavedash";
 
 #[derive(Debug)]
 pub(crate) struct ProjectTab {
@@ -44,6 +45,7 @@ struct PluginState {
     command_queue: CommandQueue,
     queued_pane_update: Option<PaneManifest>,
     queued_tab_update: Option<Vec<TabInfo>>,
+    root_config: Option<ProjectRootConfiguration>,
 }
 
 impl PluginState {
@@ -66,6 +68,7 @@ impl Default for PluginState {
             command_queue: Default::default(),
             queued_pane_update: Default::default(),
             queued_tab_update: Default::default(),
+            root_config: None,
         }
     }
 }
@@ -73,7 +76,7 @@ impl Default for PluginState {
 register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
     #[instrument(skip(self))]
-    fn load(&mut self, _configuration: BTreeMap<String, String>) {
+    fn load(&mut self, configuration: BTreeMap<String, String>) {
         let appender = tracing_appender::rolling::never("/host/target", "log");
         tracing_subscriber::registry()
             .with(fmt::layer().with_writer(appender))
@@ -87,6 +90,7 @@ impl ZellijPlugin for PluginState {
             PermissionType::OpenTerminalsOrPlugins,
             PermissionType::RunCommands,
             PermissionType::WriteToStdin,
+            PermissionType::MessageAndLaunchOtherPlugins,
         ]);
         subscribe(&[
             EventType::PaneUpdate,
@@ -118,7 +122,7 @@ impl ZellijPlugin for PluginState {
 
     #[instrument(skip(self))]
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
-        if self.project_uninit() {
+        if self.project_uninit() && pipe_message.name != PROJECT_ROOT_RESP_MESSAGE_NAME {
             warn!(tab = self.tab, "Tab not initialized yet");
             return false;
         }

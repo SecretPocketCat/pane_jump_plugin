@@ -1,10 +1,13 @@
 use std::collections::HashSet;
 
 use tracing::{debug, info, instrument, warn};
-use utils::{pane::PaneId, PROJECT_PICKER_PLUGIN_NAME};
+use utils::{pane::PaneId, project::PROJECT_ROOT_RQST_MESSAGE_NAME, PROJECT_PICKER_PLUGIN_NAME};
 use zellij_tile::{
-    prelude::{CommandToRun, FloatingPaneCoordinates, PaneManifest, TabInfo},
-    shim::{get_plugin_ids, hide_self, open_command_pane_floating, open_terminal_floating},
+    prelude::{CommandToRun, FloatingPaneCoordinates, MessageToPlugin, PaneManifest, TabInfo},
+    shim::{
+        get_plugin_ids, hide_self, open_command_pane_floating, open_terminal_floating,
+        pipe_message_to_plugin,
+    },
 };
 
 use crate::{PluginState, ProjectTab};
@@ -34,8 +37,6 @@ impl PluginState {
 
     #[instrument(skip_all)]
     fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
-        // todo: this is invoked with an invalid active tab even though the tab has not changed
-        // zellij bug?
         let panes: Vec<_> = tabs
             .iter()
             .map(|t| {
@@ -52,9 +53,6 @@ impl PluginState {
         warn!(?panes, "panes");
 
         for (i, tab) in tabs.iter().enumerate() {
-            // todo: looks like removing tabs causes the tabs to shift
-            // closing projects/tabs should go through a custom function that will shift projects around
-
             if tab.name == PROJECT_PICKER_PLUGIN_NAME {
                 continue;
             }
@@ -64,6 +62,10 @@ impl PluginState {
                 if self.projects.is_empty() {
                     // hide wavedash plugin (shown initially to confirm permissions)
                     hide_self();
+
+                    // request project root
+                    let msg = MessageToPlugin::new(PROJECT_ROOT_RQST_MESSAGE_NAME);
+                    pipe_message_to_plugin(msg);
                 }
 
                 info!(
