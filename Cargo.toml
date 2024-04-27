@@ -6,3 +6,5 @@ members = ["wavedash", "project_picker", "utils"]
 # zellij-tile = { git = "https://github.com/SecretPocketCat/zellij", branch = "hide_pane_commands" }
 zellij-tile = { path = "/home/spc/projects/zellij/zellij/zellij-tile" }
 uuid = { version = "1.8.0", features = ["v4"] }
+strum_macros = "0.26.2"
+strum = "0.26.2"

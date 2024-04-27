@@ -12,8 +12,11 @@ itertools = "0.12.1"
 # zellij-tile-utils = { git = "https://github.com/SecretPocketCat/zellij", branch = "hide_pane_commands" }
 zellij-tile-utils = { path = "/home/spc/projects/zellij/zellij/zellij-tile-utils" }
 uuid = { version = "1.8.0", features = ["v4"] }
-strum_macros = "0.26.2"
-strum = "0.26.2"
 lazy_static = "1.4.0"
 indexmap = "2.2.6"
 kdl = "4.6.0"
+anyhow = "1.0.82"
+strum_macros = { workspace = true }
+strum = { workspace = true }
+test-case = "3.3.1"
+

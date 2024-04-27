@@ -3,6 +3,7 @@ use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
+    project::parse_configuration,
     template::wavedash_template,
     PROJECT_PICKER_PLUGIN_NAME,
 };
@@ -49,6 +50,7 @@ impl PluginState {
 register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
+        eprintln!("Project conf: {:?}", parse_configuration(&configuration));
         show_self(true);
         self.pane_id = PaneId::Plugin(get_plugin_ids().plugin_id);
         request_permission(&[
