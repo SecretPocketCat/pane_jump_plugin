@@ -47,16 +47,20 @@ impl Default for PluginState {
 impl PluginState {
     fn show_project_selection(&self) {
         open_command_pane_in_place(get_fzf_pane_cmd(
-            self.projects_paths.iter().map(AsRef::as_ref),
+            self.projects_paths
+                .iter()
+                .map(|p| project_title(p, self.project_root.as_ref().unwrap().root_path.clone())),
             "pick_project",
             self.msg_client_id,
-            false,
+            true,
         ));
     }
 
     fn pick_project(&mut self, cwd: &str) {
         let name = project_title(cwd, self.project_root.as_ref().unwrap().root_path.clone());
-        new_tabs_with_layout(&wavedash_template(&cwd, &name, true));
+        let template = wavedash_template(&cwd, &name, true);
+        eprintln!("template\n{template}");
+        new_tabs_with_layout(&template);
         self.status = PluginStatus::Picked;
     }
 }
@@ -170,14 +174,21 @@ impl ZellijPlugin for PluginState {
                 .get(MSG_CLIENT_ID_ARG)
                 .is_some_and(|guid| guid == &self.msg_client_id.to_string())
             {
-                if let Some(cwd) = pipe_message
+                eprintln!("pick: {pipe_message:?}");
+                let cwd = pipe_message
                     .payload
                     .unwrap_or_default()
                     .lines()
                     .next()
-                    .map(|l| l.to_string())
-                {
-                    self.pick_project(&cwd);
+                    .and_then(|l| {
+                        l.parse::<usize>()
+                            .and_then(|i| Ok(self.projects_paths.get(i - 1)))
+                            .ok()
+                            .flatten()
+                    });
+                if let Some(cwd) = cwd {
+                    eprintln!("Picked cwd: {cwd}");
+                    self.pick_project(&cwd.clone());
                 } else {
                     // replace cancelled fzf pane with a new one
                     close_focus();
