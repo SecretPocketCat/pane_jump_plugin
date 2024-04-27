@@ -131,6 +131,16 @@ pub fn parse_configuration(
     configs
 }
 
+pub fn project_title<'a>(project_path: &'a str, mut root_path: PathBuf) -> &'a str {
+    root_path.pop();
+    let root_path = root_path.to_string_lossy().to_string();
+    if project_path.starts_with(&root_path) {
+        &project_path[(root_path.len() + 1)..]
+    } else {
+        project_path
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

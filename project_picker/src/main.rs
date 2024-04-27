@@ -4,7 +4,7 @@ use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
-    project::{parse_configuration, ProjectRootConfiguration},
+    project::{parse_configuration, project_title, ProjectRootConfiguration},
     template::wavedash_template,
     PROJECT_PICKER_PLUGIN_NAME,
 };
@@ -55,16 +55,7 @@ impl PluginState {
     }
 
     fn pick_project(&mut self, cwd: &str) {
-        let name = cwd.replace(
-            &self
-                .project_root
-                .as_ref()
-                .unwrap()
-                .root_path
-                .to_string_lossy()
-                .to_string(),
-            "",
-        );
+        let name = project_title(cwd, self.project_root.as_ref().unwrap().root_path.clone());
         new_tabs_with_layout(&wavedash_template(&cwd, &name, true));
         self.status = PluginStatus::Picked;
     }
