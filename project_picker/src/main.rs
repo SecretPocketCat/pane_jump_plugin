@@ -3,7 +3,7 @@ use utils::{
     fzf::{get_fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
-    project::parse_configuration,
+    project::{parse_configuration, ProjectConfiguration},
     template::wavedash_template,
     PROJECT_PICKER_PLUGIN_NAME,
 };
@@ -16,13 +16,15 @@ enum PluginStatus {
     Init,
     Picking(bool),
     Picked,
+    InvalidConfig(String),
 }
 
 struct PluginState {
     status: PluginStatus,
     pane_id: PaneId,
     msg_client_id: Uuid,
-    projects: Vec<String>,
+    projects_paths: Vec<String>,
+    project_configuration: Vec<ProjectConfiguration>,
 }
 
 impl Default for PluginState {
@@ -31,7 +33,8 @@ impl Default for PluginState {
             status: Default::default(),
             pane_id: PaneId::Terminal(0),
             msg_client_id: Uuid::new_v4(),
-            projects: Default::default(),
+            projects_paths: Default::default(),
+            project_configuration: Default::default(),
         }
     }
 }
@@ -39,26 +42,43 @@ impl Default for PluginState {
 impl PluginState {
     fn show_project_selection(&self) {
         open_command_pane_in_place(get_fzf_pane_cmd(
-            self.projects.iter().map(String::as_str),
+            self.projects_paths.iter().map(String::as_str),
             "pick_project",
             self.msg_client_id,
             false,
         ));
+    }
+
+    fn pick_project(&mut self, cwd: &str) {
+        // todo: the name should be the cwd without the workspace root
+        // have to impl to figure out the code to get the workspace path
+        // let name = cwd.replace(
+        //     &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
+        //     "",
+        // );
+
+        new_tabs_with_layout(&wavedash_template(&cwd, &cwd, true));
+        self.status = PluginStatus::Picked;
     }
 }
 
 register_plugin!(PluginState);
 impl ZellijPlugin for PluginState {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
-        eprintln!("Project conf: {:?}", parse_configuration(&configuration));
         show_self(true);
-        self.pane_id = PaneId::Plugin(get_plugin_ids().plugin_id);
-        request_permission(&[
-            PermissionType::ReadApplicationState,
-            PermissionType::ChangeApplicationState,
-            PermissionType::RunCommands,
-        ]);
-        subscribe(&[EventType::PaneUpdate, EventType::RunCommandResult]);
+        match parse_configuration(&configuration) {
+            Ok(config) => {
+                self.project_configuration = config;
+                self.pane_id = PaneId::Plugin(get_plugin_ids().plugin_id);
+                request_permission(&[
+                    PermissionType::ReadApplicationState,
+                    PermissionType::ChangeApplicationState,
+                    PermissionType::RunCommands,
+                ]);
+                subscribe(&[EventType::PaneUpdate, EventType::RunCommandResult]);
+            }
+            Err(e) => self.status = PluginStatus::InvalidConfig(e.to_string()),
+        }
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -88,11 +108,17 @@ impl ZellijPlugin for PluginState {
                             String::from_utf8_lossy(&stderr)
                         );
                     } else {
-                        self.projects = String::from_utf8_lossy(&stdout)
+                        self.projects_paths = String::from_utf8_lossy(&stdout)
                             .lines()
                             .map(Into::into)
                             .collect();
-                        self.show_project_selection();
+
+                        if self.projects_paths.len() == 1 {
+                            let cwd = self.projects_paths[0].clone();
+                            self.pick_project(&cwd);
+                        } else {
+                            self.show_project_selection();
+                        }
                     }
                 }
             }
@@ -103,8 +129,6 @@ impl ZellijPlugin for PluginState {
     }
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
-        eprintln!("msg: {pipe_message:?}");
-
         if let PluginStatus::Picking(_) = self.status {
             if pipe_message.payload.is_some()
                 && pipe_message
@@ -119,17 +143,7 @@ impl ZellijPlugin for PluginState {
                     .next()
                     .map(|l| l.to_string())
                 {
-                    // todo: the name should be the cwd without the workspace root
-                    // have to impl to figure out the code to get the workspace path
-                    // let name = cwd.replace(
-                    //     &get_plugin_ids().initial_cwd.to_string_lossy().to_string(),
-                    //     "",
-                    // );
-                    let name = &cwd;
-                    // close the in-place fzf pane
-                    // close_focus();
-                    new_tabs_with_layout(&wavedash_template(&cwd, name, true));
-                    self.status = PluginStatus::Picked;
+                    self.pick_project(&cwd);
                 } else {
                     // replace cancelled fzf pane with a new one
                     close_focus();
@@ -140,5 +154,11 @@ impl ZellijPlugin for PluginState {
         }
 
         false
+    }
+
+    fn render(&mut self, _rows: usize, _cols: usize) {
+        if let PluginStatus::InvalidConfig(error) = &self.status {
+            println!("{error}");
+        }
     }
 }

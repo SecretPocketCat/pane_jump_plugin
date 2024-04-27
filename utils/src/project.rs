@@ -60,7 +60,7 @@ pub fn parse_configuration(
                                     conf
                                 });
                         } else {
-                            bail!("Invalid extra project key '{k}");
+                            bail!("Invalid extra project key '{k}'");
                         }
                     }
                     ConfigField::TaskProject => {
@@ -102,9 +102,9 @@ pub fn parse_configuration(
     let configs: Result<Vec<_>, _> = partial_configs
         .into_iter()
         .map(|(root, c)| match (c.root, c.root_task_project_filter) {
-            (None, None) => bail!("Missing root path & root task project filter for root {root}"),
-            (None, Some(_)) => bail!("Missing root path for root {root}"),
-            (Some(_), None) => bail!("Missing root path project filter for root {root}"),
+            (None, None) => bail!("Missing root path & root task project filter for root '{root}'"),
+            (None, Some(_)) => bail!("Missing root path for root '{root}'"),
+            (Some(_), None) => bail!("Missing root path project filter for root '{root}'"),
             (Some(root), Some(root_task_project_filter)) => Ok(ProjectConfiguration {
                 root,
                 root_task_project_filter,
@@ -120,20 +120,6 @@ pub fn parse_configuration(
 mod tests {
     use super::*;
     use test_case::test_case;
-
-    // plugin location="project_picker" {
-    //     root.work "~/work/bace"
-    //     task_proj.work "bace"
-
-    //     root.hobby "~/projects"
-    //     extra.hobby.dot "~/dotfiles"
-    //     task_proj.hobby "l"
-    //     task_proj.hobby.zellij "l.zellij"
-    //     task_proj.hobby.helix "l.hx"
-
-    //     root.gamedev "~/gamedev"
-    //     task_proj.gamedev "gd"
-    // }
 
     fn test_conf(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
