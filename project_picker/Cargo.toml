@@ -8,3 +8,5 @@ edition = "2021"
 zellij-tile = { workspace = true }
 utils = { path = "../utils" }
 uuid = { workspace = true }
+anyhow = { workspace = true }
+

@@ -8,32 +8,36 @@ use std::{
 enum ConfigField {
     #[strum(serialize = "root")]
     Root,
+    #[strum(serialize = "default")]
+    Default,
     #[strum(serialize = "extra")]
     ExtraProject,
     #[strum(serialize = "task_proj")]
     TaskProject,
 }
 
-#[derive(Debug)]
-pub struct ProjectConfiguration {
-    pub root: PathBuf,
+#[derive(Debug, Clone)]
+pub struct ProjectRootConfiguration {
+    pub root_path: PathBuf,
     pub extra_project_paths: Vec<PathBuf>,
     pub root_task_project_filter: String,
     pub nested_task_project_filters: HashMap<String, String>,
+    pub default: bool,
 }
 
 #[derive(Default)]
-struct ParsedProjectConfiguration {
+struct ParsedProjectRootConfiguration {
     root: Option<PathBuf>,
     extra_project_paths: Vec<PathBuf>,
     root_task_project_filter: Option<String>,
     nested_task_project_filters: HashMap<String, String>,
+    default: bool,
 }
 
 pub fn parse_configuration(
     plugin_configuration: &BTreeMap<String, String>,
-) -> anyhow::Result<Vec<ProjectConfiguration>> {
-    let mut partial_configs: HashMap<&str, ParsedProjectConfiguration> = HashMap::new();
+) -> anyhow::Result<Vec<ProjectRootConfiguration>> {
+    let mut partial_configs: HashMap<&str, ParsedProjectRootConfiguration> = HashMap::new();
 
     for (k, value) in plugin_configuration.iter() {
         if let Some((field, key)) = k.split_once('.') {
@@ -44,8 +48,18 @@ pub fn parse_configuration(
                             .entry(key)
                             .and_modify(|conf| conf.root = Some(value.into()))
                             .or_insert_with(|| {
-                                let mut conf = ParsedProjectConfiguration::default();
+                                let mut conf = ParsedProjectRootConfiguration::default();
                                 conf.root = Some(value.into());
+                                conf
+                            });
+                    }
+                    ConfigField::Default => {
+                        partial_configs
+                            .entry(key)
+                            .and_modify(|conf| conf.default = true)
+                            .or_insert_with(|| {
+                                let mut conf = ParsedProjectRootConfiguration::default();
+                                conf.default = true;
                                 conf
                             });
                     }
@@ -55,7 +69,7 @@ pub fn parse_configuration(
                                 .entry(root)
                                 .and_modify(|conf| conf.extra_project_paths.push(value.into()))
                                 .or_insert_with(|| {
-                                    let mut conf = ParsedProjectConfiguration::default();
+                                    let mut conf = ParsedProjectRootConfiguration::default();
                                     conf.extra_project_paths.push(value.into());
                                     conf
                                 });
@@ -73,7 +87,7 @@ pub fn parse_configuration(
                                         .insert(key.to_string(), value.to_string());
                                 })
                                 .or_insert_with(|| {
-                                    let mut conf = ParsedProjectConfiguration::default();
+                                    let mut conf = ParsedProjectRootConfiguration::default();
                                     conf.nested_task_project_filters
                                         .insert(key.to_string(), value.to_string());
                                     conf
@@ -86,7 +100,7 @@ pub fn parse_configuration(
                                     conf.root_task_project_filter = Some(value.into())
                                 })
                                 .or_insert_with(|| {
-                                    let mut conf = ParsedProjectConfiguration::default();
+                                    let mut conf = ParsedProjectRootConfiguration::default();
                                     conf.root_task_project_filter = Some(value.into());
                                     conf
                                 });
@@ -105,11 +119,12 @@ pub fn parse_configuration(
             (None, None) => bail!("Missing root path & root task project filter for root '{root}'"),
             (None, Some(_)) => bail!("Missing root path for root '{root}'"),
             (Some(_), None) => bail!("Missing root path project filter for root '{root}'"),
-            (Some(root), Some(root_task_project_filter)) => Ok(ProjectConfiguration {
-                root,
+            (Some(root), Some(root_task_project_filter)) => Ok(ProjectRootConfiguration {
+                root_path: root,
                 root_task_project_filter,
                 extra_project_paths: c.extra_project_paths,
                 nested_task_project_filters: c.nested_task_project_filters,
+                default: c.default,
             }),
         })
         .collect();
@@ -137,12 +152,15 @@ mod tests {
     #[test_case(test_conf(&[]) => matches Ok(conf) if conf.is_empty())]
     #[test_case(default_test_conf(&[]) => matches Ok(conf) if conf.len() == 1)]
     #[test_case(default_test_conf(&[
-            ("task_proj.test.1", "test1"),
-            ("task_proj.test.2", "test2"),
+        ("default.test", "whatever"),
+    ]) => matches Ok(conf) if conf.iter().filter(|r| r.default).count() == 1)]
+    #[test_case(default_test_conf(&[
+        ("task_proj.test.1", "test1"),
+        ("task_proj.test.2", "test2"),
     ]) => matches Ok(conf) if conf.len() == 1 && conf[0].nested_task_project_filters.len() == 2)]
     #[test_case(default_test_conf(&[
-            ("extra.test.test1", "path/1"),
-            ("extra.test.test2", "path/2"),
+        ("extra.test.test1", "path/1"),
+        ("extra.test.test2", "path/2"),
     ]) => matches Ok(conf) if conf.len() == 1 && conf[0].extra_project_paths.len() == 2)]
     #[test_case(test_conf(&[
         ("root.test", "~/test/path")
@@ -158,7 +176,7 @@ mod tests {
     ]) => matches Err(_))]
     fn parse(
         plugin_configuration: BTreeMap<String, String>,
-    ) -> anyhow::Result<Vec<ProjectConfiguration>> {
+    ) -> anyhow::Result<Vec<ProjectRootConfiguration>> {
         parse_configuration(&plugin_configuration)
     }
 }
