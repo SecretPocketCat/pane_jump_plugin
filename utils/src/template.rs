@@ -27,7 +27,7 @@ layout {{
 				}}
 				pane name="tasks" {{
 				 	command "task"
-				 	args "ls" "limit:20"
+				 	args "ls" "limit:20" "project:{}"
 				}}
 				pane name="tests" {{
 				 	command "bacon"
@@ -52,7 +52,7 @@ layout {{
 	}}
 }}
 "#,
-        project_option.path, project_option.title
+        project_option.path, project_option.title, project_option.task_filter
     );
 
     template

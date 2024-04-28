@@ -33,6 +33,7 @@ pub struct ProjectRootConfiguration {
 pub struct ProjectOption {
     pub path: String,
     pub title: String,
+    pub task_filter: String,
 }
 
 impl ProjectRootConfiguration {
@@ -50,9 +51,23 @@ impl ProjectRootConfiguration {
         projects.extend(extra_paths);
         projects
             .into_iter()
-            .map(|path| ProjectOption {
-                title: project_title(&path, self.root_path.clone()).to_string(),
-                path,
+            .map(|path| {
+                let task_filter = self
+                    .nested_task_project_filters
+                    .iter()
+                    .find_map(|(k, filter)| {
+                        if path.contains(k) {
+                            Some(filter.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| self.root_task_project_filter.clone());
+                ProjectOption {
+                    title: project_title(&path, self.root_path.clone()).to_string(),
+                    path,
+                    task_filter,
+                }
             })
             .collect()
     }
