@@ -75,7 +75,7 @@ impl TryFrom<MessageKeybind> for KeybindPane {
 }
 
 impl PluginState {
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub(crate) fn handle_keybind_message(&mut self, pipe_message: PipeMessage) {
         match pipe_message.name.parse::<MessageKeybind>() {
             Ok(keybind) => {

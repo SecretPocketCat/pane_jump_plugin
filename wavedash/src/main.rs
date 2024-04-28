@@ -21,6 +21,7 @@ mod project;
 #[derive(Debug)]
 pub(crate) struct ProjectTab {
     title: String,
+    idx: usize,
     editor_pane_id: Option<PaneId>,
     // not part of focus fields because it's part of `TabUpdate`
     floating: bool,
@@ -39,7 +40,7 @@ impl ProjectTab {
 
 struct PluginState {
     tab: Option<String>,
-    projects: IndexMap<String, ProjectTab>,
+    projects: HashMap<String, ProjectTab>,
     project_options: Vec<ProjectOption>,
     plugin_id: PaneId,
     msg_client_id: Uuid,
@@ -122,7 +123,7 @@ impl ZellijPlugin for PluginState {
         false
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         if self.project_uninit() && pipe_message.name != PROJECT_ROOT_RESP_MESSAGE_NAME {
             warn!(tab = self.tab, "Tab not initialized yet");

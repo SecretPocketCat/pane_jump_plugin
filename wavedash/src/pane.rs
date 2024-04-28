@@ -37,21 +37,6 @@ impl PluginState {
 
     #[instrument(skip_all)]
     fn handle_tab_update(&mut self, tabs: &[TabInfo]) {
-        let panes: Vec<_> = tabs
-            .iter()
-            .map(|t| {
-                (
-                    &t.name,
-                    t.active,
-                    t.position,
-                    self.projects
-                        .get_index(t.position)
-                        .and_then(|(_, t)| t.editor_pane_id),
-                )
-            })
-            .collect();
-        warn!(?panes, "panes");
-
         for (i, tab) in tabs.iter().enumerate() {
             if tab.name == PROJECT_PICKER_PLUGIN_NAME {
                 continue;
@@ -77,6 +62,7 @@ impl PluginState {
                     tab.name.clone(),
                     ProjectTab {
                         title: tab.name.clone(),
+                        idx: tab.position,
                         editor_pane_id: None,
                         floating,
                         current_focus: None,
@@ -112,10 +98,7 @@ impl PluginState {
             return;
         }
 
-        let tab_i = self
-            .projects
-            .get_index_of(self.tab.as_ref().unwrap())
-            .unwrap();
+        let tab_i = self.active_project().unwrap().idx;
         debug!(tab_i, "handling pane updates");
 
         // todo: just active tab
