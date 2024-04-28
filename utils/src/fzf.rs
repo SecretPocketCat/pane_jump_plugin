@@ -5,7 +5,7 @@ use zellij_tile::{prelude::CommandToRun, shim::run_command};
 
 use crate::message::MSG_CLIENT_ID_ARG;
 
-pub fn get_fzf_pane_cmd<'a>(
+pub fn fzf_pane_cmd<'a>(
     options: impl Iterator<Item = &'a str>,
     message_type: impl Into<&'a str>,
     message_client_id: Uuid,
@@ -24,7 +24,6 @@ pub fn get_fzf_pane_cmd<'a>(
         "printf '{opts}' | {fzf_cmd} | zellij pipe  --name {} --args '{MSG_CLIENT_ID_ARG}={message_client_id}'",
         message_type.into());
     CommandToRun {
-        // path: "fish".into(),
         path: "bash".into(),
         args: vec!["-c".to_string(), cmd],
         cwd: None,
@@ -33,9 +32,12 @@ pub fn get_fzf_pane_cmd<'a>(
 
 pub fn parse_fzf_index<T>(payload: &str) -> Option<T>
 where
-    T: FromStr<Err = ParseIntError>,
+    T: FromStr<Err = ParseIntError> + num::Integer,
 {
-    payload.lines().next().and_then(|l| l.parse::<T>().ok())
+    payload
+        .lines()
+        .next()
+        .and_then(|l| l.parse::<T>().ok().map(|i| i - T::one()))
 }
 
 // todo: look for project specific dirs or files like cargo.toml etc too

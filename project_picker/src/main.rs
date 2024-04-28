@@ -1,11 +1,11 @@
 use configuration::ProjectPickerConfiguration;
 use std::collections::BTreeMap;
 use utils::{
-    fzf::{get_fzf_pane_cmd, run_find_repos_command},
+    fzf::{fzf_pane_cmd, parse_fzf_index, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     pane::PaneId,
     project::{
-        parse_configuration, project_title, ProjectRootConfiguration,
+        parse_configuration, ProjectOption, ProjectRootConfiguration,
         PROJECT_ROOT_RESP_MESSAGE_NAME, PROJECT_ROOT_RQST_MESSAGE_NAME,
     },
     template::wavedash_template,
@@ -30,7 +30,7 @@ struct PluginState {
     pane_id: PaneId,
     msg_client_id: Uuid,
     cwd: String,
-    projects_paths: Vec<String>,
+    projects_options: Vec<ProjectOption>,
     project_root: Option<ProjectRootConfiguration>,
 }
 
@@ -41,7 +41,7 @@ impl Default for PluginState {
             pane_id: PaneId::Terminal(0),
             msg_client_id: Uuid::new_v4(),
             cwd: Default::default(),
-            projects_paths: Default::default(),
+            projects_options: Default::default(),
             project_root: None,
         }
     }
@@ -49,19 +49,16 @@ impl Default for PluginState {
 
 impl PluginState {
     fn show_project_selection(&self) {
-        open_command_pane_in_place(get_fzf_pane_cmd(
-            self.projects_paths
-                .iter()
-                .map(|p| project_title(p, self.project_root.as_ref().unwrap().root_path.clone())),
+        open_command_pane_in_place(fzf_pane_cmd(
+            self.projects_options.iter().map(|p| p.title.as_str()),
             "pick_project",
             self.msg_client_id,
             true,
         ));
     }
 
-    fn pick_project(&mut self, cwd: &str) {
-        let name = project_title(cwd, self.project_root.as_ref().unwrap().root_path.clone());
-        let template = wavedash_template(&cwd, &name, true);
+    fn pick_project(&mut self, project_option: &ProjectOption) {
+        let template = wavedash_template(project_option, true);
         new_tabs_with_layout(&template);
         self.status = PluginStatus::Picked(false);
     }
@@ -129,31 +126,16 @@ impl ZellijPlugin for PluginState {
                             String::from_utf8_lossy(&stderr)
                         );
                     } else {
-                        let mut projects: Vec<String> = String::from_utf8_lossy(&stdout)
-                            .lines()
-                            .map(Into::into)
-                            .collect();
-                        let extra_paths = self
-                            .project_root
-                            .as_ref()
-                            .unwrap()
-                            .extra_project_paths
-                            .clone()
-                            .into_iter()
-                            .map(|p| p.to_string_lossy().to_string());
-                        projects.sort_unstable();
-                        projects.extend(extra_paths);
-
-                        self.projects_paths = projects;
-                        if self.projects_paths.len() == 1 {
-                            let cwd = self.projects_paths[0].clone();
-                            self.pick_project(&cwd);
+                        self.projects_options =
+                            self.project_root.as_ref().unwrap().project_options(&stdout);
+                        if self.projects_options.len() == 1 {
+                            self.pick_project(&self.projects_options[0].clone());
                         } else {
                             let plug_cwd = &self.cwd;
                             if let Some(cwd) = self
-                                .projects_paths
+                                .projects_options
                                 .iter()
-                                .find(move |p| p == &plug_cwd)
+                                .find(move |p| &p.path == plug_cwd)
                                 .cloned()
                             {
                                 self.pick_project(&cwd);
@@ -178,19 +160,11 @@ impl ZellijPlugin for PluginState {
                     .get(MSG_CLIENT_ID_ARG)
                     .is_some_and(|guid| guid == &self.msg_client_id.to_string())
                 {
-                    let cwd = pipe_message
-                        .payload
-                        .unwrap_or_default()
-                        .lines()
-                        .next()
-                        .and_then(|l| {
-                            l.parse::<usize>()
-                                .and_then(|i| Ok(self.projects_paths.get(i - 1)))
-                                .ok()
-                                .flatten()
-                        });
-                    if let Some(cwd) = cwd {
-                        self.pick_project(&cwd.clone());
+                    let option = pipe_message.payload.and_then(|p| {
+                        parse_fzf_index::<usize>(&p).and_then(|i| self.projects_options.get(i))
+                    });
+                    if let Some(option) = option {
+                        self.pick_project(&option.clone());
                     } else {
                         // replace cancelled fzf pane with a new one
                         close_focus();

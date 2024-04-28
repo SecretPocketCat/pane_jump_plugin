@@ -1,4 +1,6 @@
-pub fn wavedash_template(cwd: &str, tab_name: &str, include_wavedash_plugin: bool) -> String {
+use crate::project::ProjectOption;
+
+pub fn wavedash_template(project_option: &ProjectOption, include_wavedash_plugin: bool) -> String {
     let wavedash_plugin = if include_wavedash_plugin {
         r#"
 			 pane name="wavedash" {
@@ -12,7 +14,7 @@ pub fn wavedash_template(cwd: &str, tab_name: &str, include_wavedash_plugin: boo
     let template = format!(
         r#"
 layout {{
-	tab cwd="{cwd}" name="{tab_name}" hide_floating_panes=true {{
+	tab cwd="{}" name="{}" hide_floating_panes=true {{
 	 	pane split_direction="vertical" {{
 			pane size="65%" focus=true name="editor" {{
 				command "hx"
@@ -50,6 +52,7 @@ layout {{
 	}}
 }}
 "#,
+        project_option.path, project_option.title
     );
 
     template

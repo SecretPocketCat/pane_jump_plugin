@@ -49,11 +49,13 @@ impl PluginState {
                             }
                         }
                         MessageType::OpenProject => {
-                            if let Some(cwd) = payload.lines().next().map(|l| l.to_string()) {
-                                match self.projects.get_index_of(&cwd) {
+                            if let Some(option) = parse_fzf_index::<usize>(&payload)
+                                .and_then(|i| self.project_options.get(i))
+                            {
+                                match self.projects.get_index_of(&option.title) {
                                     Some(i) => switch_tab_to(i as u32),
                                     None => {
-                                        new_tabs_with_layout(&wavedash_template(&cwd, &cwd, false));
+                                        new_tabs_with_layout(&wavedash_template(&option, false));
                                     }
                                 }
                             }
@@ -70,11 +72,8 @@ impl PluginState {
                         }
                         MessageType::FocusStatusPane => {
                             if let Some(idx) = parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) = self
-                                    .active_project()
-                                    .unwrap()
-                                    .status_panes
-                                    .get_index(idx - 1)
+                                if let Some((id, _)) =
+                                    self.active_project().unwrap().status_panes.get_index(idx)
                                 {
                                     id.focus();
                                     self.command_queue
@@ -84,11 +83,8 @@ impl PluginState {
                         }
                         MessageType::FocusTerminalPane => {
                             if let Some(idx) = parse_fzf_index::<usize>(&payload) {
-                                if let Some((id, _)) = self
-                                    .active_project()
-                                    .unwrap()
-                                    .terminal_panes
-                                    .get_index(idx - 1)
+                                if let Some((id, _)) =
+                                    self.active_project().unwrap().terminal_panes.get_index(idx)
                                 {
                                     id.focus();
                                 }

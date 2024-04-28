@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use tracing::{instrument, warn};
-use utils::{fzf::get_fzf_pane_cmd, pane::PaneFocus};
+use utils::{fzf::fzf_pane_cmd, pane::PaneFocus};
 use zellij_tile::shim::{set_timeout, switch_to_input_mode, write_chars};
 
 use crate::{input::KeybindPane, message::MessageType, PluginState};
@@ -109,12 +109,16 @@ impl PluginState {
             return;
         }
 
-        // todo: insert keybind pane etc.
-        Self::open_floating_pane(Some(get_fzf_pane_cmd(
-            String::from_utf8_lossy(&stdout).lines(),
+        self.command_queue
+            .queue_focus_command(QueuedFocusCommand::MarkKeybindPane(
+                KeybindPane::OpenProject,
+            ));
+        self.project_options = self.root_config.as_ref().unwrap().project_options(&stdout);
+        Self::open_floating_pane(Some(fzf_pane_cmd(
+            self.project_options.iter().map(|o| o.title.as_str()),
             MessageType::OpenProject.as_ref(),
             self.msg_client_id,
-            false,
+            true,
         )));
     }
 

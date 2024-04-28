@@ -6,7 +6,7 @@ use tracing::{info, instrument, warn};
 use tracing_subscriber::{fmt, prelude::*};
 use utils::{
     pane::{PaneFocus, PaneId},
-    project::{ProjectRootConfiguration, PROJECT_ROOT_RESP_MESSAGE_NAME},
+    project::{ProjectOption, ProjectRootConfiguration, PROJECT_ROOT_RESP_MESSAGE_NAME},
 };
 use uuid::Uuid;
 use zellij_tile::prelude::*;
@@ -40,6 +40,7 @@ impl ProjectTab {
 struct PluginState {
     tab: Option<String>,
     projects: IndexMap<String, ProjectTab>,
+    project_options: Vec<ProjectOption>,
     plugin_id: PaneId,
     msg_client_id: Uuid,
     command_queue: CommandQueue,
@@ -63,6 +64,7 @@ impl Default for PluginState {
         Self {
             tab: None,
             projects: Default::default(),
+            project_options: Default::default(),
             plugin_id: PaneId::Plugin(0),
             msg_client_id: Uuid::new_v4(),
             command_queue: Default::default(),

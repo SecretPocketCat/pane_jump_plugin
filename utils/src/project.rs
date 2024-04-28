@@ -29,6 +29,35 @@ pub struct ProjectRootConfiguration {
     pub default: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct ProjectOption {
+    pub path: String,
+    pub title: String,
+}
+
+impl ProjectRootConfiguration {
+    pub fn project_options(&self, find_stdout: &[u8]) -> Vec<ProjectOption> {
+        let mut projects: Vec<String> = String::from_utf8_lossy(find_stdout)
+            .lines()
+            .map(Into::into)
+            .collect();
+        let extra_paths = self
+            .extra_project_paths
+            .clone()
+            .into_iter()
+            .map(|p| p.to_string_lossy().to_string());
+        projects.sort_unstable();
+        projects.extend(extra_paths);
+        projects
+            .into_iter()
+            .map(|path| ProjectOption {
+                title: project_title(&path, self.root_path.clone()).to_string(),
+                path,
+            })
+            .collect()
+    }
+}
+
 #[derive(Default)]
 struct ParsedProjectRootConfiguration {
     root: Option<PathBuf>,
@@ -135,7 +164,7 @@ pub fn parse_configuration(
     configs
 }
 
-pub fn project_title<'a>(project_path: &'a str, mut root_path: PathBuf) -> &'a str {
+fn project_title<'a>(project_path: &'a str, mut root_path: PathBuf) -> &'a str {
     root_path.pop();
     let root_path = root_path.to_string_lossy().to_string();
     if project_path.starts_with(&root_path) {

@@ -2,7 +2,7 @@ use crate::{command_queue::QueuedFocusCommand, message::MessageType, PluginState
 use std::convert::{TryFrom, TryInto};
 use tracing::{debug, error, instrument};
 use utils::{
-    fzf::{get_fzf_pane_cmd, run_find_repos_command},
+    fzf::{fzf_pane_cmd, run_find_repos_command},
     message::MSG_CLIENT_ID_ARG,
     DASH_PLUGIN_NAME,
 };
@@ -158,47 +158,14 @@ impl PluginState {
             KeybindPane::Git => Some(CommandToRun::new("lazygit")),
             KeybindPane::K9s => Some(CommandToRun::new("k9s")),
             KeybindPane::Terminal => None,
-            KeybindPane::OpenProject => {
-                // todo: fzf, but get dirs first
-
-                // original wezterm lua code used for projects
-                // local workspace_roots = {
-                //   work = "~/work",
-                //   gamedev = "~/gamedev",
-                //   hobby = "~/projects",
-                // }
-                // local extra_repos = {
-                //   hobby = {
-                //     {
-                //       id = wezterm.home_dir .. "/dotfiles",
-                //       label = "dotfiles"
-                //     },
-                //         {
-                //       id = wezterm.home_dir .. "/dotfiles/.config/hypr/",
-                //       label = "hypr"
-                //     },
-                //         {
-                //       id = wezterm.home_dir .. "/dotfiles/.config/wezterm/",
-                //       label = "wez"
-                //     },
-                //     {
-                //       id = wezterm.home_dir .. "/projects/keebs/qmk/keyboards/klor/keymaps/secretpocketcat/",
-                //       label = "qmk/klor"
-                //     }
-                //   }
-                // }
-
-                // todo
-                None
-                // Some(self.get_fzf_pane_cmd(dirs, MessageType::OpenProject))
-            }
-            KeybindPane::ProjectDash => Some(get_fzf_pane_cmd(
+            KeybindPane::OpenProject => None,
+            KeybindPane::ProjectDash => Some(fzf_pane_cmd(
                 self.projects.values().map(|p| p.title.as_str()),
                 MessageType::FocusProject.as_ref(),
                 self.msg_client_id,
                 false,
             )),
-            KeybindPane::StatusPaneDash => Some(get_fzf_pane_cmd(
+            KeybindPane::StatusPaneDash => Some(fzf_pane_cmd(
                 self.active_project()
                     .unwrap()
                     .status_panes
@@ -208,7 +175,7 @@ impl PluginState {
                 self.msg_client_id,
                 true,
             )),
-            KeybindPane::TerminalPaneDash => Some(get_fzf_pane_cmd(
+            KeybindPane::TerminalPaneDash => Some(fzf_pane_cmd(
                 self.active_project()
                     .unwrap()
                     .terminal_panes
