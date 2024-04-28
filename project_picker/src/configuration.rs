@@ -29,8 +29,7 @@ impl ProjectPickerConfiguration {
     }
 
     pub fn root(&self, cwd: &str) -> &ProjectRootConfiguration {
-        &self
-            .roots
+        self.roots
             .iter()
             .find(|r| r.root_path.to_string_lossy().contains(cwd))
             .unwrap_or_else(|| self.default_root())

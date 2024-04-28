@@ -55,7 +55,7 @@ impl PluginState {
                                 if self.projects.contains_key(&option.title) {
                                     focus_or_create_tab(&option.title);
                                 } else {
-                                    new_tabs_with_layout(&wavedash_template(&option, false));
+                                    new_tabs_with_layout(&wavedash_template(option, false));
                                 }
                             }
 

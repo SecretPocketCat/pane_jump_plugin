@@ -95,20 +95,18 @@ pub fn parse_configuration(
                         partial_configs
                             .entry(key)
                             .and_modify(|conf| conf.root = Some(value.into()))
-                            .or_insert_with(|| {
-                                let mut conf = ParsedProjectRootConfiguration::default();
-                                conf.root = Some(value.into());
-                                conf
+                            .or_insert_with(|| ParsedProjectRootConfiguration {
+                                root: Some(value.into()),
+                                ..Default::default()
                             });
                     }
                     ConfigField::Default => {
                         partial_configs
                             .entry(key)
                             .and_modify(|conf| conf.default = true)
-                            .or_insert_with(|| {
-                                let mut conf = ParsedProjectRootConfiguration::default();
-                                conf.default = true;
-                                conf
+                            .or_insert_with(|| ParsedProjectRootConfiguration {
+                                default: true,
+                                ..Default::default()
                             });
                     }
                     ConfigField::ExtraProject => {
@@ -116,10 +114,9 @@ pub fn parse_configuration(
                             partial_configs
                                 .entry(root)
                                 .and_modify(|conf| conf.extra_project_paths.push(value.into()))
-                                .or_insert_with(|| {
-                                    let mut conf = ParsedProjectRootConfiguration::default();
-                                    conf.extra_project_paths.push(value.into());
-                                    conf
+                                .or_insert_with(|| ParsedProjectRootConfiguration {
+                                    extra_project_paths: vec![value.into()],
+                                    ..Default::default()
                                 });
                         } else {
                             bail!("Invalid extra project key '{k}'");
@@ -147,10 +144,9 @@ pub fn parse_configuration(
                                 .and_modify(|conf| {
                                     conf.root_task_project_filter = Some(value.into())
                                 })
-                                .or_insert_with(|| {
-                                    let mut conf = ParsedProjectRootConfiguration::default();
-                                    conf.root_task_project_filter = Some(value.into());
-                                    conf
+                                .or_insert_with(|| ParsedProjectRootConfiguration {
+                                    root_task_project_filter: Some(value.into()),
+                                    ..Default::default()
                                 });
                         }
                     }
@@ -179,7 +175,7 @@ pub fn parse_configuration(
     configs
 }
 
-fn project_title<'a>(project_path: &'a str, mut root_path: PathBuf) -> &'a str {
+fn project_title(project_path: &str, mut root_path: PathBuf) -> &str {
     root_path.pop();
     let root_path = root_path.to_string_lossy().to_string();
     if project_path.starts_with(&root_path) {
