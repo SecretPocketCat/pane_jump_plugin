@@ -6,7 +6,7 @@ use utils::{
 };
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
-    shim::{close_focus, focus_or_create_tab, new_tabs_with_layout, switch_tab_to},
+    shim::{close_focus, focus_or_create_tab, new_tabs_with_layout},
 };
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
@@ -52,11 +52,10 @@ impl PluginState {
                             if let Some(option) = parse_fzf_index::<usize>(&payload)
                                 .and_then(|i| self.project_options.get(i))
                             {
-                                match self.projects.get_index_of(&option.title) {
-                                    Some(i) => switch_tab_to(i as u32),
-                                    None => {
-                                        new_tabs_with_layout(&wavedash_template(&option, false));
-                                    }
+                                if self.projects.contains_key(&option.title) {
+                                    focus_or_create_tab(&option.title);
+                                } else {
+                                    new_tabs_with_layout(&wavedash_template(&option, false));
                                 }
                             }
 
