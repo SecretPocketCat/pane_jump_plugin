@@ -6,7 +6,7 @@ use utils::{
 };
 use zellij_tile::{
     prelude::{PipeMessage, PipeSource},
-    shim::{close_focus, new_tabs_with_layout, switch_tab_to},
+    shim::{close_focus, focus_or_create_tab, new_tabs_with_layout, switch_tab_to},
 };
 
 #[derive(strum_macros::EnumString, strum_macros::AsRefStr, Debug, PartialEq)]
@@ -65,8 +65,8 @@ impl PluginState {
                         }
                         MessageType::FocusProject => {
                             if let Some(tab_title) = payload.lines().next() {
-                                if let Some(idx) = self.projects.get_index_of(tab_title) {
-                                    switch_tab_to(idx as u32);
+                                if self.projects.contains_key(tab_title) {
+                                    focus_or_create_tab(tab_title);
                                 }
                             }
                         }

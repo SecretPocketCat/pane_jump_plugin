@@ -104,6 +104,7 @@ impl ZellijPlugin for PluginState {
                         .root_path
                         .to_string_lossy();
                     run_find_repos_command(&*root);
+                    rename_tab(0, PROJECT_PICKER_PLUGIN_NAME);
                     self.status = PluginStatus::Picking(false);
                 }
                 PluginStatus::Picking(false) => {
